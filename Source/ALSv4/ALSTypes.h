@@ -1,0 +1,160 @@
+﻿// Fill out your copyright notice in the Description page of Project Settings.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "InputAction.h"
+#include "Curves/CurveVector.h"
+#include "ALSTypes.generated.h"
+
+// 步态
+UENUM(BlueprintType)
+enum class EALSGait: uint8
+{
+	Walking = 0,
+	Running = 1,
+	Sprinting = 2,
+};
+
+// 姿势
+UENUM(BlueprintType)
+enum class EALSStance: uint8
+{
+	Standing = 0,
+	Crouching = 1,
+};
+
+// 旋转模式
+UENUM(BlueprintType)
+enum class EALSRotationMode: uint8
+{
+	VelocityDirection = 0,
+	LookingDirection = 1,
+	Aiming = 2,
+};
+
+// 观察模式
+UENUM(BlueprintType)
+enum class EALSViewMode: uint8
+{
+	ThirdPerson = 0,
+	FirstPerson = 1,
+};
+
+// 移动行为
+UENUM(BlueprintType)
+enum class EALSMovementAction: uint8
+{
+	None = 0,
+	LowMantle = 1,
+	HighMantle = 2,
+	Rolling = 3,
+	GettingUp = 4,
+};
+
+// 移动状态
+UENUM(BlueprintType)
+enum class EALSMovementState: uint8
+{
+	None = 0,
+	Grounded = 1,
+	InAir = 2,
+	Mantling = 3,
+	Ragdoll = 4,
+};
+
+UENUM(BlueprintType)
+enum class EALSOverlayState: uint8
+{
+	Default = 0,
+	Masculine = 1,
+	Feminine = 2,
+	Injured = 3,
+	HandsTied = 4,
+	Rifle = 5,
+	Pistol1H = 6,
+	Pistol2H = 6,
+	Bow = 7,
+	Torch = 8,
+	Binoculars = 9,
+	Box = 10,
+	Barrel = 11,
+};
+
+USTRUCT(BlueprintType)
+struct FALSMovementSettings
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float WalkSpeed;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float RunSpeed;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float SprintSpeed;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UCurveVector* MovementCurve;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UCurveFloat* RotationRateCurve;
+};
+
+USTRUCT(BlueprintType)
+struct FALSMovementStanceSettings
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSMovementSettings Standing;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSMovementSettings Crouching;
+};
+
+USTRUCT(BlueprintType)
+struct FALSMovementStateSettings
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSMovementStanceSettings VelocityDirection;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSMovementStanceSettings LookingDirection;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSMovementStanceSettings Aiming;
+};
+
+USTRUCT(BlueprintType)
+struct FALSInputActions
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UInputAction* MoveForwardBackwardAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UInputAction* MoveLeftRightAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UInputAction* LookUpDownAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UInputAction* LookLeftRightAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UInputAction* JumpAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UInputAction* StanceAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UInputAction* WalkAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UInputAction* SprintAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UInputAction* SelectionRotationMode1Action;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UInputAction* SelectionRotationMode2Action;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UInputAction* AimAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UInputAction* CameraAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UInputAction* RagdollAction;
+};

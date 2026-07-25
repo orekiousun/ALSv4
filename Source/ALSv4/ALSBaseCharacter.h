@@ -8,6 +8,7 @@
 #include "InputActionValue.h"
 #include "InputMappingContext.h"
 #include "GameFramework/Character.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "ALSBaseCharacter.generated.h"
 
 UCLASS()
@@ -20,6 +21,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
 	virtual void Tick(float DeltaTime) override;
@@ -37,7 +39,8 @@ public:
 
 protected:
 	void OnBeginPlay();
-	
+
+	// 状态改变
 	void OnMovementStateChanged(EALSMovementState NewMovementState);
 	void OnMovementActionChanged(EALSMovementAction NewMovementAction);
 	void OnRotationModeChanged(EALSRotationMode NewRotationMode);
@@ -45,7 +48,8 @@ protected:
 	void OnStanceChanged(EALSStance NewStance);
 	void OnViewModeChanged(EALSViewMode NewViewMode);
 	void OnOverlayStateChanged(EALSOverlayState NewOverlayState);
-	
+
+	// 输入
 	void OnMoveForwardBackwardTriggered(const FInputActionValue& Value);
 	void OnMoveLeftRightTriggered(const FInputActionValue& Value);
 	void OnLookUpDownTriggered(const FInputActionValue& Value);
@@ -54,22 +58,37 @@ protected:
 	void OnJumpCompleted(const FInputActionValue& Value);
 	void OnStanceTriggered(const FInputActionValue& Value);
 	void OnWalkTriggered(const FInputActionValue& Value);
+	void OnWalkCompleted(const FInputActionValue& Value);
 	void OnSprintTriggered(const FInputActionValue& Value);
+	void OnSprintCompleted(const FInputActionValue& Value);
 	void OnSelectRotationMode1Triggered(const FInputActionValue& Value);
 	void OnSelectRotationMode2Triggered(const FInputActionValue& Value);
 	void OnAimTriggered(const FInputActionValue& Value);
 	void OnAimCompleted(const FInputActionValue& Value);
 	void OnCameraTriggered(const FInputActionValue& Value);
 	void OnRagdollTriggered(const FInputActionValue& Value);
-	
+
+	// 翻滚
+	void Roll();
+
+	// 布娃娃
 	void RagdollStart();
+	void RagdollEnd();
+
+	// 攀爬
+	bool MantleCheck(const FALSMantleTraceSettings& MantleTraceSettings, EDrawDebugTrace::Type DebugType);
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Config)
 	FALSMovementStateSettings MovementData;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Config)
+	FALSMantleTraceSettings GroundTraceSettings;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Config)
+	FALSMantleTraceSettings FallingTraceSettings;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Input)
 	FALSInputActions InputActions;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Input)
 	UInputMappingContext* DefaultMappingContext;
+
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAnimInstance> MainAnimInstance;
@@ -96,4 +115,7 @@ protected:
 	FRotator LastVelocityRotation;
 	FRotator LastMovementInputRotation;
 	FRotator InAirRotation;
+	bool HasMovementInput;
+	bool bBreakFall;
+	FTimerHandle BreakFallTimerHandle;
 };

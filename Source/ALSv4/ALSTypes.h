@@ -158,3 +158,21 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UInputAction* RagdollAction;
 };
+
+USTRUCT(BlueprintType)
+struct FALSMantleTraceSettings
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float MaxLedgeHeight;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float MinLedgeHeight;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float ReachDistance;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float ForwardTraceRadius;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float DownwardTraceRadius;
+};

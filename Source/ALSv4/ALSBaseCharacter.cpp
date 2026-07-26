@@ -5,6 +5,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 
 class UEnhancedInputLocalPlayerSubsystem;
@@ -35,13 +36,32 @@ void AALSBaseCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 	if (GetWorld())
 	{
-		GetWorld()->GetTimerManager().ClearTimer(BreakFallTimerHandle);
+		FTimerManager& TimerManager = GetWorld()->GetTimerManager();
+		TimerManager.ClearTimer(BreakFallTimerHandle);
+		TimerManager.ClearTimer(ResetMovementBrakingFrictionFactorTimerHandle);
 	}
 }
 
 void AALSBaseCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	SetEssentialValues();
+	switch (MovementState)
+	{
+	case EALSMovementState::Grounded:
+		UpdateCharacterMovement();
+		UpdateGroundedRotation();
+	case EALSMovementState::InAir:
+		UpdateInAirRotation();
+		if (bHasMovementInput)
+		{
+			MantleCheck(FallingTraceSettings, EDrawDebugTrace::Type::ForOneFrame);
+		}
+	case EALSMovementState::Ragdoll:
+		RagdollUpdate();
+	}
+	CacheValues();
+	DrawDebugShapes();
 }
 
 void AALSBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -122,6 +142,43 @@ void AALSBaseCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeig
 {
 	Super::OnEndCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
 	OnStanceChanged(EALSStance::Standing);
+}
+
+void AALSBaseCharacter::OnJumped_Implementation()
+{
+	Super::OnJumped_Implementation();
+	InAirRotation = Speed > 100.f ? LastVelocityRotation : GetActorRotation();
+	if (MainAnimInstance)
+	{
+		// TODO：调用MainAnimInstance的Jumped
+	}
+}
+
+void AALSBaseCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+	if (bBreakFall)
+	{
+		BreakFall();
+	}
+	else
+	{
+		if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+		{
+			MoveComp->BrakingFrictionFactor = bHasMovementInput ? 0.5 : 3.0;
+			if (GetWorld())
+			{
+				GetWorld()->GetTimerManager().ClearTimer(ResetMovementBrakingFrictionFactorTimerHandle);
+				GetWorld()->GetTimerManager().SetTimer(ResetMovementBrakingFrictionFactorTimerHandle, [this]()
+				{
+					if (GetCharacterMovement())
+					{
+						GetCharacterMovement()->BrakingFrictionFactor = 0.f;
+					}
+				}, 0.5, false);
+			}
+		}
+	}
 }
 
 void AALSBaseCharacter::SetMovementState(EALSMovementState NewMovementState)
@@ -210,6 +267,120 @@ void AALSBaseCharacter::OnBeginPlay()
 	TargetRotation = ActorRotation;
 	LastVelocityRotation = ActorRotation;
 	LastMovementInputRotation = ActorRotation;
+}
+
+void AALSBaseCharacter::SetEssentialValues()
+{
+	// 1.设置加速度
+	FVector Velocity = GetVelocity();
+	float DeltaSeconds = UGameplayStatics::GetWorldDeltaSeconds(this);
+	Acceleration = (Velocity - PreviousVelocity) / DeltaSeconds;
+
+	// 2.计算Speed，bIsMoving，LastVelocityRotation
+	FVector HorizontalVelocity(Velocity.X, Velocity.Y, 0.f);
+	Speed = UKismetMathLibrary::VSize(HorizontalVelocity);
+	bIsMoving = Speed > 1.0f;
+	if (bIsMoving)
+	{
+		LastVelocityRotation = UKismetMathLibrary::Conv_VectorToRotator(Velocity);
+	}
+
+	// 3.计算MovementInputAmount、bHasMovementInput、LastMovementInputRotation
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		FVector CurAcceleration = MoveComp->GetCurrentAcceleration();
+		MovementInputAmount = UKismetMathLibrary::VSize(CurAcceleration) / MoveComp->GetMaxAcceleration();
+		bHasMovementInput = MovementInputAmount > 0;
+		if (bHasMovementInput)
+		{
+			LastMovementInputRotation = UKismetMathLibrary::Conv_VectorToRotator(CurAcceleration);
+		}
+	}
+
+	// 4.计算AimYawRate（用当前的Yaw和上一帧Yaw的差值除以时间，相当于计算Yaw的速度）
+	AimYawRate = UKismetMathLibrary::Abs((GetControlRotation().Yaw - PreviousAimYaw) / DeltaSeconds);
+}
+
+void AALSBaseCharacter::CacheValues()
+{
+	PreviousVelocity = GetVelocity();
+	PreviousAimYaw = GetControlRotation().Yaw;
+}
+
+void AALSBaseCharacter::DrawDebugShapes()
+{
+}
+
+void AALSBaseCharacter::UpdateCharacterMovement()
+{
+	AllowedGait = GetAllowedGait();
+	ActualGait = GetActualGait(AllowedGait);
+	if (ActualGait != Gait)
+	{
+		SetGait(ActualGait);
+	}
+	UpdateDynamicMovementSettings(AllowedGait);
+}
+
+void AALSBaseCharacter::UpdateDynamicMovementSettings(EALSGait InGait)
+{
+	CurMovementSettings = GetTargetMovementSettings();
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		switch (AllowedGait)
+		{
+		case EALSGait::Walking:
+			MoveComp->MaxWalkSpeed = CurMovementSettings.WalkSpeed;
+			MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.WalkSpeed;
+		case EALSGait::Running:
+			MoveComp->MaxWalkSpeed = CurMovementSettings.RunSpeed;
+			MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.RunSpeed;
+		case EALSGait::Sprinting:
+			MoveComp->MaxWalkSpeed = CurMovementSettings.SprintSpeed;
+			MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.SprintSpeed;
+		}
+
+		// 根据当前速度决定步态，根据步态写入MovementComp参数
+		if (CurMovementSettings.MovementCurve)
+		{
+			FVector CurveValue = CurMovementSettings.MovementCurve->GetVectorValue(GetMappedSpeed());
+			MoveComp->MaxAcceleration = CurveValue.X;
+			MoveComp->BrakingDecelerationWalking = CurveValue.Y;
+			MoveComp->GroundFriction = CurveValue.Z;
+		}
+	}
+}
+
+void AALSBaseCharacter::UpdateGroundedRotation()
+{
+	switch (MovementAction)
+	{
+	case EALSMovementAction::None:
+		if (CanUpdateMovingORotation())
+		{
+			float GroundedRotationRate = CalcGroundedRotationRate();
+
+			switch (RotationMode)
+			{
+			case EALSRotationMode::VelocityDirection:
+			case EALSRotationMode::LookingDirection:
+			case EALSRotationMode::Aiming:
+				{
+				}
+			}
+		}
+	case EALSMovementAction::Rolling:
+		{
+		}
+	}
+}
+
+void AALSBaseCharacter::UpdateInAirRotation()
+{
+}
+
+void AALSBaseCharacter::RagdollUpdate()
+{
 }
 
 void AALSBaseCharacter::OnMovementStateChanged(EALSMovementState NewMovementState)
@@ -350,7 +521,7 @@ void AALSBaseCharacter::OnJumpTriggered(const FInputActionValue& Value)
 	{
 	case EALSMovementState::Grounded:
 		// 攀爬检测不通过，则跳起
-		if (HasMovementInput && !MantleCheck(GroundTraceSettings, EDrawDebugTrace::Type::ForDuration))
+		if (bHasMovementInput && !MantleCheck(GroundTraceSettings, EDrawDebugTrace::Type::ForDuration))
 		{
 			switch (Stance)
 			{
@@ -488,7 +659,18 @@ void AALSBaseCharacter::OnRagdollTriggered(const FInputActionValue& Value)
 
 void AALSBaseCharacter::Roll()
 {
-	// TODO: 待实现
+	// TODO: 待实现，播放蒙太奇
+	if (MainAnimInstance)
+	{
+	}
+}
+
+void AALSBaseCharacter::BreakFall()
+{
+	// TODO: 待实现，播放蒙太奇
+	if (MainAnimInstance)
+	{
+	}
 }
 
 void AALSBaseCharacter::RagdollStart()
@@ -505,4 +687,105 @@ bool AALSBaseCharacter::MantleCheck(const FALSMantleTraceSettings& MantleTraceSe
 {
 	// TODO: 待实现
 	return true;
+}
+
+EALSGait AALSBaseCharacter::GetAllowedGait()
+{
+	if (Stance == EALSStance::Standing && (RotationMode == EALSRotationMode::VelocityDirection || RotationMode ==
+		EALSRotationMode::LookingDirection))
+	{
+		switch (DesiredGait)
+		{
+		case EALSGait::Walking:
+			return EALSGait::Walking;
+		case EALSGait::Running:
+			return EALSGait::Running;
+		case EALSGait::Sprinting:
+			return CanSprint() ? EALSGait::Sprinting : EALSGait::Running;
+		}
+	}
+	else if (Stance == EALSStance::Crouching && RotationMode == EALSRotationMode::Aiming)
+	{
+		return (DesiredGait == EALSGait::Walking || DesiredGait == EALSGait::Running)
+			       ? EALSGait::Walking
+			       : EALSGait::Running;
+	}
+	return EALSGait::Walking;
+}
+
+EALSGait AALSBaseCharacter::GetActualGait(EALSGait InGait)
+{
+	float WalkSpeed = CurMovementSettings.WalkSpeed;
+	float RunSpeed = CurMovementSettings.RunSpeed;
+	if (Speed >= RunSpeed + 10)
+	{
+		return InGait == EALSGait::Sprinting ? EALSGait::Sprinting : EALSGait::Running;
+	}
+	else if (Speed >= WalkSpeed + 10)
+	{
+		return EALSGait::Running;
+	}
+	else
+	{
+		return EALSGait::Walking;
+	}
+}
+
+bool AALSBaseCharacter::CanSprint()
+{
+	return true;
+}
+
+FALSMovementSettings AALSBaseCharacter::GetTargetMovementSettings() const
+{
+	switch (RotationMode)
+	{
+	case EALSRotationMode::VelocityDirection:
+		return Stance == EALSStance::Standing
+			       ? MovementData.VelocityDirection.Standing
+			       : MovementData.VelocityDirection.Crouching;
+	case EALSRotationMode::LookingDirection:
+		return Stance == EALSStance::Standing
+			       ? MovementData.LookingDirection.Standing
+			       : MovementData.LookingDirection.Crouching;
+	case EALSRotationMode::Aiming:
+		return Stance == EALSStance::Standing
+			       ? MovementData.Aiming.Standing
+			       : MovementData.Aiming.Crouching;
+	}
+	return FALSMovementSettings();
+}
+
+float AALSBaseCharacter::GetMappedSpeed() const
+{
+	float WalkSpeed = CurMovementSettings.WalkSpeed;
+	float RunSpeed = CurMovementSettings.RunSpeed;
+	float SprintSpeed = CurMovementSettings.SprintSpeed;
+	if (Speed > RunSpeed)
+	{
+		return UKismetMathLibrary::MapRangeClamped(Speed, RunSpeed, SprintSpeed, 2, 3);
+	}
+	else if (Speed > WalkSpeed)
+	{
+		return UKismetMathLibrary::MapRangeClamped(Speed, WalkSpeed, RunSpeed, 1, 2);
+	}
+	else
+	{
+		return UKismetMathLibrary::MapRangeClamped(Speed, 0, WalkSpeed, 0, 1);
+	}
+}
+
+bool AALSBaseCharacter::CanUpdateMovingORotation() const
+{
+	return (bIsMoving && bHasMovementInput || Speed > 150.f) && !HasAnyRootMotion();
+}
+
+float AALSBaseCharacter::CalcGroundedRotationRate() const
+{
+	if (CurMovementSettings.RotationRateCurve)
+	{
+		float ClampedAimYawRate = UKismetMathLibrary::MapRangeClamped(AimYawRate, 0, 300, 1, 3);
+		return ClampedAimYawRate * CurMovementSettings.RotationRateCurve->GetFloatValue(GetMappedSpeed());
+	}
+	return 0.f;
 }

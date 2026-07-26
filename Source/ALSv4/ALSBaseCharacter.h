@@ -29,6 +29,9 @@ public:
 	virtual void OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode = 0) override;
 	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+	virtual void OnJumped_Implementation() override;
+	// 等效于OnLanded，只是OnLanded是BlueprintImplementableEvent，这里为了兼容不同的引擎，就用Landed了
+	virtual void Landed(const FHitResult& Hit) override;
 
 	virtual void SetMovementState(EALSMovementState NewMovementState) override;
 	virtual void SetMovementAction(EALSMovementAction NewMovementAction) override;
@@ -39,6 +42,16 @@ public:
 
 protected:
 	void OnBeginPlay();
+
+	// Tick相关
+	void SetEssentialValues();
+	void CacheValues();
+	void DrawDebugShapes();
+	void UpdateCharacterMovement();
+	void UpdateDynamicMovementSettings(EALSGait InGait);
+	void UpdateGroundedRotation();
+	void UpdateInAirRotation();
+	void RagdollUpdate();
 
 	// 状态改变
 	void OnMovementStateChanged(EALSMovementState NewMovementState);
@@ -70,6 +83,8 @@ protected:
 
 	// 翻滚
 	void Roll();
+	// 下落时攀爬
+	void BreakFall();
 
 	// 布娃娃
 	void RagdollStart();
@@ -77,6 +92,14 @@ protected:
 
 	// 攀爬
 	bool MantleCheck(const FALSMantleTraceSettings& MantleTraceSettings, EDrawDebugTrace::Type DebugType);
+
+	EALSGait GetAllowedGait();
+	EALSGait GetActualGait(EALSGait InGait);
+	bool CanSprint();
+	FALSMovementSettings GetTargetMovementSettings() const;
+	float GetMappedSpeed() const;
+	bool CanUpdateMovingORotation() const;
+	float CalcGroundedRotationRate() const;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Config)
 	FALSMovementStateSettings MovementData;
@@ -89,7 +112,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Input)
 	UInputMappingContext* DefaultMappingContext;
 
-
 	UPROPERTY(Transient)
 	TObjectPtr<UAnimInstance> MainAnimInstance;
 
@@ -101,6 +123,8 @@ protected:
 	EALSRotationMode PrevRotationMode;
 	EALSRotationMode DesiredRotationMode = EALSRotationMode::LookingDirection;
 	EALSGait Gait;
+	EALSGait AllowedGait;
+	EALSGait ActualGait;
 	EALSGait PrevGait;
 	EALSGait DesiredGait = EALSGait::Running;
 	EALSStance Stance;
@@ -111,11 +135,25 @@ protected:
 	EALSOverlayState OverlayState = EALSOverlayState::Default;
 	EALSOverlayState PrevOverlayState;
 
-	FRotator TargetRotation;
+	FVector Acceleration;
+	FVector PreviousVelocity;
+
+	float Speed;
+	bool bIsMoving;
 	FRotator LastVelocityRotation;
+
+	float MovementInputAmount;
+	bool bHasMovementInput;
 	FRotator LastMovementInputRotation;
+
+	float AimYawRate;
+	float PreviousAimYaw;
+
+	FALSMovementSettings CurMovementSettings;
+
+	FRotator TargetRotation;
 	FRotator InAirRotation;
-	bool HasMovementInput;
 	bool bBreakFall;
 	FTimerHandle BreakFallTimerHandle;
+	FTimerHandle ResetMovementBrakingFrictionFactorTimerHandle;
 };

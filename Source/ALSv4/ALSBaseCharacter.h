@@ -30,7 +30,7 @@ public:
 	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 	virtual void OnJumped_Implementation() override;
-	// 等效于OnLanded，只是OnLanded是BlueprintImplementableEvent，这里为了兼容不同的引擎，就用Landed了
+	// 等效于OnLanded，只是OnLanded是BlueprintImplementableEvent，这里为了兼容不同版本的引擎，就用Landed了
 	virtual void Landed(const FHitResult& Hit) override;
 
 	virtual void SetMovementState(EALSMovementState NewMovementState) override;
@@ -51,6 +51,8 @@ protected:
 	void UpdateDynamicMovementSettings(EALSGait InGait);
 	void UpdateGroundedRotation();
 	void UpdateInAirRotation();
+	void SmoothCharacterRotation(FRotator InRotation, float TargetInterpSpeed, float ActorInterpSpeed);
+	void LimitRotation(float AimYawMin, float AimYawMax, float InterpSpeed);
 	void RagdollUpdate();
 
 	// 状态改变
@@ -92,13 +94,21 @@ protected:
 
 	// 攀爬
 	bool MantleCheck(const FALSMantleTraceSettings& MantleTraceSettings, EDrawDebugTrace::Type DebugType);
+	void MantleStart(float MantleHeight, FTransform MantleLedgeTransform, UPrimitiveComponent* MantleLedgeComponent,
+	                 EALSMantleType MantleType);
+	void MantleEnd();
+	void MantleUpdate();
+	void CapsuleHasRoomCheck();
+	FALSMantleAsset GetMantleAsset(EALSMantleType MantleType);
 
-	EALSGait GetAllowedGait();
-	EALSGait GetActualGait(EALSGait InGait);
-	bool CanSprint();
+	// Utils
+	float GetAnimCurveValue(FName CurveName) const;
+	EALSGait GetAllowedGait() const;
+	EALSGait GetActualGait(EALSGait InGait) const;
+	bool CanSprint() const;
 	FALSMovementSettings GetTargetMovementSettings() const;
 	float GetMappedSpeed() const;
-	bool CanUpdateMovingORotation() const;
+	bool CanUpdateMovingRotation() const;
 	float CalcGroundedRotationRate() const;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Config)
@@ -111,6 +121,8 @@ protected:
 	FALSInputActions InputActions;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Input)
 	UInputMappingContext* DefaultMappingContext;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Input)
+	FALSMantleSettings MantleSettings;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAnimInstance> MainAnimInstance;
@@ -153,6 +165,7 @@ protected:
 
 	FRotator TargetRotation;
 	FRotator InAirRotation;
+	// 标识需要在落地时翻滚
 	bool bBreakFall;
 	FTimerHandle BreakFallTimerHandle;
 	FTimerHandle ResetMovementBrakingFrictionFactorTimerHandle;

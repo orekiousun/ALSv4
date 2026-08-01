@@ -81,6 +81,14 @@ enum class EALSOverlayState: uint8
 	Barrel = 11,
 };
 
+UENUM(BlueprintType)
+enum EALSMantleType
+{
+	HighMantle = 0,
+	LowMantle = 1,
+	FallingCatch = 2,
+};
+
 USTRUCT(BlueprintType)
 struct FALSMovementSettings
 {
@@ -175,4 +183,44 @@ public:
 	float ForwardTraceRadius;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float DownwardTraceRadius;
+};
+
+USTRUCT(BlueprintType)
+struct FALSMantleAsset
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UAnimMontage* AnimMontage;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UCurveVector* PositionCurve;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FVector StartingOffset;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float LowHeight;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float LowPlayRate;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float LowStartPosition;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float HighHeight;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float HighPlayRate;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float HighStartPosition;
+};
+
+USTRUCT(BlueprintType)
+struct FALSMantleSettings
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSMantleAsset HighMantleAsset;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSMantleAsset LowMantleAsset;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSMantleAsset FallingCatchMantleAsset;
 };

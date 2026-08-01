@@ -49,13 +49,17 @@ void AALSBaseCharacter::Tick(float DeltaTime)
 	switch (MovementState)
 	{
 	case EALSMovementState::Grounded:
-		UpdateCharacterMovement();
-		UpdateGroundedRotation();
-	case EALSMovementState::InAir:
-		UpdateInAirRotation();
-		if (bHasMovementInput)
 		{
-			MantleCheck(FallingTraceSettings, EDrawDebugTrace::Type::ForOneFrame);
+			UpdateCharacterMovement();
+			UpdateGroundedRotation();
+		}
+	case EALSMovementState::InAir:
+		{
+			UpdateInAirRotation();
+			if (bHasMovementInput)
+			{
+				MantleCheck(FallingTraceSettings, EDrawDebugTrace::Type::ForOneFrame);
+			}
 		}
 	case EALSMovementState::Ragdoll:
 		RagdollUpdate();
@@ -243,13 +247,14 @@ void AALSBaseCharacter::SetOverlayState(EALSOverlayState NewOverlayState)
 
 void AALSBaseCharacter::OnBeginPlay()
 {
+	// 缓存MainAnimInstance
 	if (USkeletalMeshComponent* TempMesh = GetMesh())
 	{
 		TempMesh->AddTickPrerequisiteActor(this);
 		MainAnimInstance = TempMesh->GetAnimInstance();
 	}
 
-	// 初始化状态值
+	// 初始化状态值，下面的几个值都有默认值
 	OnGaitChanged(DesiredGait);
 	OnRotationModeChanged(DesiredRotationMode);
 	OnViewModeChanged(ViewMode);
@@ -330,14 +335,20 @@ void AALSBaseCharacter::UpdateDynamicMovementSettings(EALSGait InGait)
 		switch (AllowedGait)
 		{
 		case EALSGait::Walking:
-			MoveComp->MaxWalkSpeed = CurMovementSettings.WalkSpeed;
-			MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.WalkSpeed;
+			{
+				MoveComp->MaxWalkSpeed = CurMovementSettings.WalkSpeed;
+				MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.WalkSpeed;
+			}
 		case EALSGait::Running:
-			MoveComp->MaxWalkSpeed = CurMovementSettings.RunSpeed;
-			MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.RunSpeed;
+			{
+				MoveComp->MaxWalkSpeed = CurMovementSettings.RunSpeed;
+				MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.RunSpeed;
+			}
 		case EALSGait::Sprinting:
-			MoveComp->MaxWalkSpeed = CurMovementSettings.SprintSpeed;
-			MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.SprintSpeed;
+			{
+				MoveComp->MaxWalkSpeed = CurMovementSettings.SprintSpeed;
+				MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.SprintSpeed;
+			}
 		}
 
 		// 根据当前速度决定步态，根据步态写入MovementComp参数
@@ -356,27 +367,99 @@ void AALSBaseCharacter::UpdateGroundedRotation()
 	switch (MovementAction)
 	{
 	case EALSMovementAction::None:
-		if (CanUpdateMovingORotation())
+		if (CanUpdateMovingRotation())
 		{
-			float GroundedRotationRate = CalcGroundedRotationRate();
-
 			switch (RotationMode)
 			{
 			case EALSRotationMode::VelocityDirection:
+				// 插值到速度方向，只保留Yaw
+				SmoothCharacterRotation(FRotator(0.f, LastVelocityRotation.Yaw, 0.f), 800.f,
+				                        CalcGroundedRotationRate());
 			case EALSRotationMode::LookingDirection:
-			case EALSRotationMode::Aiming:
+				switch (Gait)
 				{
+				case EALSGait::Walking:
+				case EALSGait::Running:
+					{
+						// 插值到Controller方向
+						float AnimYawOffset = GetAnimCurveValue(TEXT("YawOffset"));
+						SmoothCharacterRotation(FRotator(0.f, GetControlRotation().Yaw + AnimYawOffset, 0.f),
+						                        500.f,
+						                        CalcGroundedRotationRate());
+					}
+				case EALSGait::Sprinting:
+					// 冲刺还是插值到速度方向
+					SmoothCharacterRotation(FRotator(0.f, LastVelocityRotation.Yaw, 0.f), 500.f,
+					                        CalcGroundedRotationRate());
 				}
+			case EALSRotationMode::Aiming:
+				// 插值到Controller方向
+				SmoothCharacterRotation(FRotator(0.f, GetControlRotation().Yaw, 0.f), 1000.f, 20.f);
+			}
+		}
+		else
+		{
+			// 第一人称或者瞄准模式下，如控制器的Yaw和角色自身的Yaw相差过大，需要纠正在合理范围内
+			if (ViewMode == EALSViewMode::FirstPerson || RotationMode == EALSRotationMode::Aiming)
+			{
+				LimitRotation(-100.f, 100.f, 20.f);
+			}
+			// 应用动画曲线中的旋转值
+			float TargetYaw = UGameplayStatics::GetWorldDeltaSeconds(this) * 30 * GetAnimCurveValue(
+				TEXT("RotationAmount"));
+			if (UKismetMathLibrary::Abs(TargetYaw) > 0.001)
+			{
+				AddActorWorldRotation(FRotator(0.f, TargetYaw, 0.f));
+				TargetRotation = GetActorRotation();
 			}
 		}
 	case EALSMovementAction::Rolling:
+		if (bHasMovementInput)
 		{
+			SmoothCharacterRotation(FRotator(0.f, LastMovementInputRotation.Yaw, 0.f), 0.f, 2.f);
 		}
 	}
 }
 
 void AALSBaseCharacter::UpdateInAirRotation()
 {
+	switch (RotationMode)
+	{
+	case EALSRotationMode::VelocityDirection:
+	case EALSRotationMode::LookingDirection:
+		SmoothCharacterRotation(FRotator(0.f, InAirRotation.Yaw, 0.f), 0.f, 5.f);
+	case EALSRotationMode::Aiming:
+		{
+			FRotator ControlRotation = GetControlRotation();
+			SmoothCharacterRotation(FRotator(0.f, ControlRotation.Yaw, 0.f), 0.f, 5.f);
+			InAirRotation = GetActorRotation();
+		}
+	}
+}
+
+void AALSBaseCharacter::SmoothCharacterRotation(FRotator InRotation, float TargetInterpSpeed, float ActorInterpSpeed)
+{
+	float DeltaTime = UGameplayStatics::GetWorldDeltaSeconds(this);
+	// 先将当前的目标旋转插值到新的目标旋转，刷新目标旋转的值
+	TargetRotation = UKismetMathLibrary::RInterpTo_Constant(TargetRotation, InRotation, DeltaTime, TargetInterpSpeed);
+	// 再将角色当前的旋转向目标旋转插值
+	FRotator ActorRotation = UKismetMathLibrary::RInterpTo(GetActorRotation(), TargetRotation, DeltaTime,
+	                                                       ActorInterpSpeed);
+	SetActorRotation(ActorRotation);
+}
+
+void AALSBaseCharacter::LimitRotation(float AimYawMin, float AimYawMax, float InterpSpeed)
+{
+	FRotator ControlRotation = GetControlRotation();
+	FRotator ActorRotation = GetActorRotation();
+	// 计算ControlRotation和ActorRotation的差值
+	FRotator DeltaRotation = UKismetMathLibrary::NormalizedDeltaRotator(ControlRotation, ActorRotation);
+	// 如果当前ControlRotation和ActorRotation的Yaw不在限制的范围里面，就要旋转到范围中去
+	if (!UKismetMathLibrary::InRange_FloatFloat(DeltaRotation.Yaw, AimYawMin, AimYawMax))
+	{
+		float TargetYaw = DeltaRotation.Yaw > 0 ? ControlRotation.Yaw + AimYawMin : ControlRotation.Yaw + AimYawMax;
+		SmoothCharacterRotation(FRotator(0.f, TargetYaw, 0.f), 0.f, InterpSpeed);
+	}
 }
 
 void AALSBaseCharacter::RagdollUpdate()
@@ -393,10 +476,12 @@ void AALSBaseCharacter::OnMovementStateChanged(EALSMovementState NewMovementStat
 		switch (MovementAction)
 		{
 		case EALSMovementAction::None:
-			InAirRotation = GetActorRotation();
-			if (Stance == EALSStance::Crouching)
 			{
-				UnCrouch();
+				InAirRotation = GetActorRotation();
+				if (Stance == EALSStance::Crouching)
+				{
+					UnCrouch();
+				}
 			}
 		case EALSMovementAction::Rolling:
 			RagdollStart();
@@ -460,7 +545,8 @@ void AALSBaseCharacter::OnViewModeChanged(EALSViewMode NewViewMode)
 	switch (ViewMode)
 	{
 	case EALSViewMode::ThirdPerson:
-		if (RotationMode == EALSRotationMode::VelocityDirection || RotationMode == EALSRotationMode::LookingDirection)
+		if (RotationMode == EALSRotationMode::VelocityDirection || RotationMode ==
+			EALSRotationMode::LookingDirection)
 		{
 			SetRotationMode(DesiredRotationMode);
 		}
@@ -482,9 +568,7 @@ void AALSBaseCharacter::OnMoveForwardBackwardTriggered(const FInputActionValue& 
 {
 	if (MovementState == EALSMovementState::Grounded || MovementState == EALSMovementState::InAir)
 	{
-		FRotator Rot = GetControlRotation();
-		Rot.Pitch = 0.0f;
-		Rot.Roll = 0.0f;
+		FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
 		AddMovementInput(UKismetMathLibrary::GetForwardVector(Rot), Value.GetMagnitude());
 	}
 }
@@ -493,9 +577,7 @@ void AALSBaseCharacter::OnMoveLeftRightTriggered(const FInputActionValue& Value)
 {
 	if (MovementState == EALSMovementState::Grounded || MovementState == EALSMovementState::InAir)
 	{
-		FRotator Rot = GetControlRotation();
-		Rot.Pitch = 0.0f;
-		Rot.Roll = 0.0f;
+		FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
 		AddMovementInput(UKismetMathLibrary::GetRightVector(Rot), Value.GetMagnitude());
 	}
 }
@@ -512,6 +594,7 @@ void AALSBaseCharacter::OnLookLeftRightTriggered(const FInputActionValue& Value)
 
 void AALSBaseCharacter::OnJumpTriggered(const FInputActionValue& Value)
 {
+	// 只有在MovementAction为None时才能跳起
 	if (MovementAction != EALSMovementAction::None)
 	{
 		return;
@@ -520,9 +603,10 @@ void AALSBaseCharacter::OnJumpTriggered(const FInputActionValue& Value)
 	switch (MovementState)
 	{
 	case EALSMovementState::Grounded:
-		// 攀爬检测不通过，则跳起
+		// 不能攀爬，则跳起
 		if (bHasMovementInput && !MantleCheck(GroundTraceSettings, EDrawDebugTrace::Type::ForDuration))
 		{
+			// 如果是站立就跳起，如果是蹲下就回到站立
 			switch (Stance)
 			{
 			case EALSStance::Standing:
@@ -532,7 +616,7 @@ void AALSBaseCharacter::OnJumpTriggered(const FInputActionValue& Value)
 			}
 		}
 	case EALSMovementState::InAir:
-		// 如果是在空中按跳跃，直接进行攀爬检查
+		// 如果是在空中按跳跃，进行攀爬检查
 		MantleCheck(FallingTraceSettings, EDrawDebugTrace::Type::ForDuration);
 	case EALSMovementState::Ragdoll:
 		RagdollStart();
@@ -556,11 +640,15 @@ void AALSBaseCharacter::OnStanceTriggered(const FInputActionValue& Value)
 			switch (Stance)
 			{
 			case EALSStance::Standing:
-				DesiredStance = EALSStance::Crouching;
-				Crouch();
+				{
+					DesiredStance = EALSStance::Crouching;
+					Crouch();
+				}
 			case EALSStance::Crouching:
-				DesiredStance = EALSStance::Standing;
-				UnCrouch();
+				{
+					DesiredStance = EALSStance::Standing;
+					UnCrouch();
+				}
 			}
 		case EALSMovementState::InAir:
 			// 在空中单击了下蹲，需要在着地时翻滚
@@ -689,7 +777,48 @@ bool AALSBaseCharacter::MantleCheck(const FALSMantleTraceSettings& MantleTraceSe
 	return true;
 }
 
-EALSGait AALSBaseCharacter::GetAllowedGait()
+void AALSBaseCharacter::MantleStart(float MantleHeight, FTransform MantleLedgeTransform,
+                                    UPrimitiveComponent* MantleLedgeComponent, EALSMantleType MantleType)
+{
+}
+
+void AALSBaseCharacter::MantleEnd()
+{
+}
+
+void AALSBaseCharacter::MantleUpdate()
+{
+}
+
+void AALSBaseCharacter::CapsuleHasRoomCheck()
+{
+}
+
+FALSMantleAsset AALSBaseCharacter::GetMantleAsset(EALSMantleType MantleType)
+{
+	switch (MantleType)
+	{
+	case EALSMantleType::HighMantle:
+		return MantleSettings.HighMantleAsset;
+	case EALSMantleType::LowMantle:
+		return MantleSettings.LowMantleAsset;
+	case EALSMantleType::FallingCatch:
+		return MantleSettings.FallingCatchMantleAsset;
+	}
+
+	return FALSMantleAsset();
+}
+
+float AALSBaseCharacter::GetAnimCurveValue(FName CurveName) const
+{
+	if (MainAnimInstance)
+	{
+		return MainAnimInstance->GetCurveValue(CurveName);
+	}
+	return 0.f;
+}
+
+EALSGait AALSBaseCharacter::GetAllowedGait() const
 {
 	if (Stance == EALSStance::Standing && (RotationMode == EALSRotationMode::VelocityDirection || RotationMode ==
 		EALSRotationMode::LookingDirection))
@@ -713,7 +842,7 @@ EALSGait AALSBaseCharacter::GetAllowedGait()
 	return EALSGait::Walking;
 }
 
-EALSGait AALSBaseCharacter::GetActualGait(EALSGait InGait)
+EALSGait AALSBaseCharacter::GetActualGait(EALSGait InGait) const
 {
 	float WalkSpeed = CurMovementSettings.WalkSpeed;
 	float RunSpeed = CurMovementSettings.RunSpeed;
@@ -731,9 +860,31 @@ EALSGait AALSBaseCharacter::GetActualGait(EALSGait InGait)
 	}
 }
 
-bool AALSBaseCharacter::CanSprint()
+bool AALSBaseCharacter::CanSprint() const
 {
-	return true;
+	if (!bHasMovementInput)
+	{
+		return false;
+	}
+
+	switch (RotationMode)
+	{
+	case EALSRotationMode::VelocityDirection:
+		return MovementInputAmount > 0.9;
+	case EALSRotationMode::LookingDirection:
+		if (UCharacterMovementComponent* MovementComp = GetCharacterMovement())
+		{
+			FRotator VelocityRotation =
+				UKismetMathLibrary::Conv_VectorToRotator(MovementComp->GetCurrentAcceleration());
+			FRotator ControlRotation = GetControlRotation();
+			FRotator DeltaRotation = UKismetMathLibrary::NormalizedDeltaRotator(VelocityRotation, ControlRotation);
+			// 需满足速度方向与控制器方向的Yaw差值小于一定值才能冲刺
+			return MovementInputAmount > 0.9 && UKismetMathLibrary::Abs(DeltaRotation.Yaw) < 50.f;
+		}
+	case EALSRotationMode::Aiming:
+		return false;
+	}
+	return false;
 }
 
 FALSMovementSettings AALSBaseCharacter::GetTargetMovementSettings() const
@@ -775,9 +926,9 @@ float AALSBaseCharacter::GetMappedSpeed() const
 	}
 }
 
-bool AALSBaseCharacter::CanUpdateMovingORotation() const
+bool AALSBaseCharacter::CanUpdateMovingRotation() const
 {
-	return (bIsMoving && bHasMovementInput || Speed > 150.f) && !HasAnyRootMotion();
+	return ((bIsMoving && bHasMovementInput) || Speed > 150.f) && !HasAnyRootMotion();
 }
 
 float AALSBaseCharacter::CalcGroundedRotationRate() const

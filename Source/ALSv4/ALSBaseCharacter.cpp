@@ -2,8 +2,11 @@
 
 
 #include "ALSBaseCharacter.h"
+
+#include "ALSPlayerController.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -38,7 +41,7 @@ void AALSBaseCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		FTimerManager& TimerManager = GetWorld()->GetTimerManager();
 		TimerManager.ClearTimer(BreakFallTimerHandle);
-		TimerManager.ClearTimer(ResetMovementBrakingFrictionFactorTimerHandle);
+		TimerManager.ClearTimer(BrakingFrictionFactorTimerHandle);
 	}
 }
 
@@ -172,8 +175,8 @@ void AALSBaseCharacter::Landed(const FHitResult& Hit)
 			MoveComp->BrakingFrictionFactor = bHasMovementInput ? 0.5 : 3.0;
 			if (GetWorld())
 			{
-				GetWorld()->GetTimerManager().ClearTimer(ResetMovementBrakingFrictionFactorTimerHandle);
-				GetWorld()->GetTimerManager().SetTimer(ResetMovementBrakingFrictionFactorTimerHandle, [this]()
+				GetWorld()->GetTimerManager().ClearTimer(BrakingFrictionFactorTimerHandle);
+				GetWorld()->GetTimerManager().SetTimer(BrakingFrictionFactorTimerHandle, [this]()
 				{
 					if (GetCharacterMovement())
 					{
@@ -279,7 +282,7 @@ void AALSBaseCharacter::SetEssentialValues()
 	// 1.设置加速度
 	FVector Velocity = GetVelocity();
 	float DeltaSeconds = UGameplayStatics::GetWorldDeltaSeconds(this);
-	Acceleration = (Velocity - PreviousVelocity) / DeltaSeconds;
+	Acceleration = (Velocity - PrevVelocity) / DeltaSeconds;
 
 	// 2.计算Speed，bIsMoving，LastVelocityRotation
 	FVector HorizontalVelocity(Velocity.X, Velocity.Y, 0.f);
@@ -302,13 +305,13 @@ void AALSBaseCharacter::SetEssentialValues()
 		}
 	}
 
-	// 4.计算AimYawRate（用当前的Yaw和上一帧Yaw的差值除以时间，相当于计算Yaw的速度）
+	// 4.计算AimYawRate（用当前的Yaw和上一帧Yaw的差值除以时间，相当于计算Yaw变化的速度）
 	AimYawRate = UKismetMathLibrary::Abs((GetControlRotation().Yaw - PreviousAimYaw) / DeltaSeconds);
 }
 
 void AALSBaseCharacter::CacheValues()
 {
-	PreviousVelocity = GetVelocity();
+	PrevVelocity = GetVelocity();
 	PreviousAimYaw = GetControlRotation().Yaw;
 }
 
@@ -405,6 +408,7 @@ void AALSBaseCharacter::UpdateGroundedRotation()
 				LimitRotation(-100.f, 100.f, 20.f);
 			}
 			// 应用动画曲线中的旋转值
+			// NOTE：动画中会计算旋转角度并设置进RotationAmount中，这里再通过RotationAmount来调整实际胶囊体的旋转
 			float TargetYaw = UGameplayStatics::GetWorldDeltaSeconds(this) * 30 * GetAnimCurveValue(
 				TEXT("RotationAmount"));
 			if (UKismetMathLibrary::Abs(TargetYaw) > 0.001)
@@ -430,8 +434,7 @@ void AALSBaseCharacter::UpdateInAirRotation()
 		SmoothCharacterRotation(FRotator(0.f, InAirRotation.Yaw, 0.f), 0.f, 5.f);
 	case EALSRotationMode::Aiming:
 		{
-			FRotator ControlRotation = GetControlRotation();
-			SmoothCharacterRotation(FRotator(0.f, ControlRotation.Yaw, 0.f), 0.f, 5.f);
+			SmoothCharacterRotation(FRotator(0.f, GetControlRotation().Yaw, 0.f), 0.f, 5.f);
 			InAirRotation = GetActorRotation();
 		}
 	}
@@ -584,12 +587,12 @@ void AALSBaseCharacter::OnMoveLeftRightTriggered(const FInputActionValue& Value)
 
 void AALSBaseCharacter::OnLookUpDownTriggered(const FInputActionValue& Value)
 {
-	AddControllerYawInput(Value.GetMagnitude());
+	AddControllerPitchInput(Value.GetMagnitude());
 }
 
 void AALSBaseCharacter::OnLookLeftRightTriggered(const FInputActionValue& Value)
 {
-	AddControllerPitchInput(Value.GetMagnitude());
+	AddControllerYawInput(Value.GetMagnitude());
 }
 
 void AALSBaseCharacter::OnJumpTriggered(const FInputActionValue& Value)
@@ -651,7 +654,7 @@ void AALSBaseCharacter::OnStanceTriggered(const FInputActionValue& Value)
 				}
 			}
 		case EALSMovementState::InAir:
-			// 在空中单击了下蹲，需要在着地时翻滚
+			// 在空中单击了下蹲，短时间内需要在着地时翻滚
 			if (GetWorld())
 			{
 				bBreakFall = true;
@@ -773,7 +776,98 @@ void AALSBaseCharacter::RagdollEnd()
 
 bool AALSBaseCharacter::MantleCheck(const FALSMantleTraceSettings& MantleTraceSettings, EDrawDebugTrace::Type DebugType)
 {
-	// TODO: 待实现
+	FVector InitialTraceImpactPoint;
+	FVector InitialTraceImpactNormal;
+	FVector DownTraceLocation;
+	UPrimitiveComponent* HitComponent;
+	FTransform TargetTransform;
+	float MantleHeight = 0.f;
+	EALSMantleType MantleType = EALSMantleType::LowMantle;
+	FVector CapsuleBaseLocation = GetCapsuleBaseLocation(2.f);
+	FVector MovementInput = GetPlayerMovementInput();
+	TArray<AActor*> ActorsToIgnore;
+
+	// HitResult.bBlockingHit: 为是否发生了Block类型的碰撞，如果为false则代表发生了Overlap
+	// HitResult.bStartPenetrating: 是否发生渗透现象，即碰撞起点是否在物体内部
+	// HitResult.Location: 当没有bStartPenetrating时为:碰撞时碰撞体所在位置. 当有bStartPenetrating时与TraceStart相等
+	// HitResult.ImpactPoint: 碰撞点位置
+
+	{
+		// 从输入方向后方向前方做Capsule Trace
+		// 第一次Trace：从输入方向后30cm向前进距离做Trace，用于Trace的胶囊体位置保持在Trace范围中心，高度和最大最小高度差一致
+		// TraceStart: CapsuleBaseLocation向输入方向后退30cm再加上Trace范围的中点
+		FVector TraceStart = CapsuleBaseLocation * MovementInput * -30 + FVector(
+			0.f, 0.f, (MantleTraceSettings.MinLedgeHeight + MantleTraceSettings.MaxLedgeHeight) / 2);
+		// TraceEnd: TraceStart向输入方向前进配置的距离
+		FVector TraceEnd = TraceStart + MovementInput * MantleTraceSettings.ReachDistance;
+		// TraceRadius: 配置值
+		float TraceRadius = MantleTraceSettings.ForwardTraceRadius;
+		// TraceHalfHeight: 最大高度和最小高度差的一半
+		float TraceHalfHeight = (MantleTraceSettings.MaxLedgeHeight - MantleTraceSettings.MinLedgeHeight) / 2 + 1;
+
+		FHitResult HitResult;
+		UKismetSystemLibrary::CapsuleTraceSingle(this, TraceStart, TraceEnd, TraceRadius, TraceHalfHeight,
+		                                         ETraceTypeQuery::TraceTypeQuery3, false, ActorsToIgnore,
+		                                         GetTraceDebugType(DebugType), HitResult, true);
+		// 必须要有命中且命中点可以行走才继续攀爬检测
+		if (GetCharacterMovement() && GetCharacterMovement()->IsWalkable(HitResult) && HitResult.bBlockingHit && !
+			HitResult.bStartPenetrating)
+		{
+			InitialTraceImpactPoint = HitResult.ImpactPoint;
+			InitialTraceImpactNormal = HitResult.ImpactNormal;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	{
+		// 第二次Trace，从命中点上方向下方做Sphere Trace
+		FVector TraceEnd = FVector(InitialTraceImpactPoint.X, InitialTraceImpactPoint.Y, CapsuleBaseLocation.Z);
+		FVector TraceStart = TraceEnd + FVector(
+			0.f, 0.f, MantleTraceSettings.MaxLedgeHeight + MantleTraceSettings.DownwardTraceRadius + 1);
+		float TraceRadius = MantleTraceSettings.DownwardTraceRadius;
+		FHitResult HitResult;
+		UKismetSystemLibrary::SphereTraceSingle(this, TraceStart, TraceEnd, TraceRadius, TraceTypeQuery3, false,
+		                                        ActorsToIgnore, GetTraceDebugType(DebugType), HitResult, true);
+
+		if (GetCharacterMovement() && GetCharacterMovement()->IsWalkable(HitResult) && HitResult.bBlockingHit)
+		{
+			// 取碰撞时球形的下顶点
+			DownTraceLocation = FVector(HitResult.Location.X, HitResult.Location.Y, HitResult.ImpactPoint.Z);
+			HitComponent = HitResult.GetComponent();
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	{
+		// 第三次Trace，检测是否可以把角色放到目标位置上
+		FVector TargetCapsuleLocation = GetCapsuleLocationFormBase(DownTraceLocation, 2.f);
+		if (!CapsuleHasRoomCheck(GetCapsuleComponent(), TargetCapsuleLocation, 0.f, 0.f, DebugType))
+		{
+			return false;
+		}
+
+		FRotator TargetCapsuleRotation = UKismetMathLibrary::Conv_VectorToRotator(
+			InitialTraceImpactNormal * FVector(-1.f, -1.f, 0));
+		TargetTransform = FTransform(TargetCapsuleRotation, TargetCapsuleLocation, FVector::OneVector);
+		MantleHeight = (TargetCapsuleLocation - GetActorLocation()).Z;
+	}
+
+	switch (MovementState)
+	{
+	case EALSMovementState::InAir:
+		MantleType = EALSMantleType::FallingCatch;
+	default:
+		MantleType = MantleHeight > 125.f ? EALSMantleType::HighMantle : EALSMantleType::LowMantle;
+	}
+
+	// 攀爬检测通过，开始攀爬
+	MantleStart(MantleHeight, TargetTransform, HitComponent, MantleType);
 	return true;
 }
 
@@ -790,8 +884,26 @@ void AALSBaseCharacter::MantleUpdate()
 {
 }
 
-void AALSBaseCharacter::CapsuleHasRoomCheck()
+bool AALSBaseCharacter::CapsuleHasRoomCheck(UCapsuleComponent* Capsule, FVector TargetLocation, float HeightOffset,
+                                            float RadiusOffset, EDrawDebugTrace::Type DebugType)
 {
+	if (!Capsule)
+	{
+		return false;
+	}
+	TArray<AActor*> ActorsToIgnore;
+
+	// 将目标位置分别向上和向下一段距离进行检测
+	float Height = Capsule->GetScaledCapsuleHalfHeight_WithoutHemisphere() - RadiusOffset + HeightOffset;
+	FVector TraceStart = TargetLocation + FVector(0.f, 0.f, Height);
+	FVector TraceEnd = TargetLocation - FVector(0.f, 0.f, Height);
+	float TraceRadius = Capsule->GetScaledCapsuleRadius() + RadiusOffset;
+	FHitResult HitResult;
+	UKismetSystemLibrary::SphereTraceSingleByProfile(this, TraceStart, TraceEnd, TraceRadius, TEXT("ALS_Character"),
+	                                                 false, ActorsToIgnore, GetTraceDebugType(DebugType), HitResult,
+	                                                 true, FColor::Green, FColor::Purple, 1.f);
+
+	return UKismetMathLibrary::BooleanNOR(HitResult.bBlockingHit, HitResult.bStartPenetrating);
 }
 
 FALSMantleAsset AALSBaseCharacter::GetMantleAsset(EALSMantleType MantleType)
@@ -818,11 +930,26 @@ float AALSBaseCharacter::GetAnimCurveValue(FName CurveName) const
 	return 0.f;
 }
 
+FVector AALSBaseCharacter::GetPlayerMovementInput()
+{
+	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
+	{
+		FRotator ControlHorizontal = FRotator(0.f, GetControlRotation().Yaw, 0.f);
+		FVector ControlForwardWithInput = UKismetMathLibrary::GetForwardVector(ControlHorizontal) *
+			EnhancedInputComponent->GetBoundActionValue(InputActions.MoveForwardBackwardAction).GetMagnitude();
+		FVector ControlRightWithInput = UKismetMathLibrary::GetRightVector(ControlHorizontal) *
+			EnhancedInputComponent->GetBoundActionValue(InputActions.MoveLeftRightAction).GetMagnitude();
+		return UKismetMathLibrary::Normal(ControlForwardWithInput + ControlRightWithInput, 0.001);
+	}
+	return FVector::ZeroVector;
+}
+
 EALSGait AALSBaseCharacter::GetAllowedGait() const
 {
 	if (Stance == EALSStance::Standing && (RotationMode == EALSRotationMode::VelocityDirection || RotationMode ==
 		EALSRotationMode::LookingDirection))
 	{
+		// 站立姿态且不瞄准
 		switch (DesiredGait)
 		{
 		case EALSGait::Walking:
@@ -835,6 +962,7 @@ EALSGait AALSBaseCharacter::GetAllowedGait() const
 	}
 	else if (Stance == EALSStance::Crouching && RotationMode == EALSRotationMode::Aiming)
 	{
+		// 蹲下瞄准时不允许冲刺
 		return (DesiredGait == EALSGait::Walking || DesiredGait == EALSGait::Running)
 			       ? EALSGait::Walking
 			       : EALSGait::Running;
@@ -844,6 +972,7 @@ EALSGait AALSBaseCharacter::GetAllowedGait() const
 
 EALSGait AALSBaseCharacter::GetActualGait(EALSGait InGait) const
 {
+	// 根据当前速度计算一下实际的步态
 	float WalkSpeed = CurMovementSettings.WalkSpeed;
 	float RunSpeed = CurMovementSettings.RunSpeed;
 	if (Speed >= RunSpeed + 10)
@@ -870,6 +999,7 @@ bool AALSBaseCharacter::CanSprint() const
 	switch (RotationMode)
 	{
 	case EALSRotationMode::VelocityDirection:
+		// 速度方向需要满足输入足够大
 		return MovementInputAmount > 0.9;
 	case EALSRotationMode::LookingDirection:
 		if (UCharacterMovementComponent* MovementComp = GetCharacterMovement())
@@ -939,4 +1069,48 @@ float AALSBaseCharacter::CalcGroundedRotationRate() const
 		return ClampedAimYawRate * CurMovementSettings.RotationRateCurve->GetFloatValue(GetMappedSpeed());
 	}
 	return 0.f;
+}
+
+FVector AALSBaseCharacter::GetCapsuleBaseLocation(float ZOffset)
+{
+	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+	{
+		return Capsule->K2_GetComponentLocation() - (Capsule->GetScaledCapsuleHalfHeight() + ZOffset)
+			* Capsule->GetUpVector();
+	}
+
+	return FVector::ZeroVector;
+}
+
+FVector AALSBaseCharacter::GetCapsuleLocationFormBase(FVector BaseLocation, float ZOffset)
+{
+	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+	{
+		return BaseLocation + FVector(0.f, 0.f, Capsule->GetScaledCapsuleHalfHeight() + ZOffset);
+	}
+
+	return FVector::ZeroVector;
+}
+
+EDrawDebugTrace::Type AALSBaseCharacter::GetTraceDebugType(EDrawDebugTrace::Type TraceType) const
+{
+	if (AALSPlayerController* ALSPC = GetController<AALSPlayerController>())
+	{
+		TObjectPtr<ACharacter> DebugFocusCharacter;
+		bool bDebugView;
+		bool bShowHUD;
+		bool bShowTraces;
+		bool bShowDebugShapes;
+		bool bShowLayerColors;
+		bool bShowCharacterInfo;
+		bool bShowSlomo;
+		ALSPC->GetDebugInfo(DebugFocusCharacter, bDebugView, bShowHUD, bShowTraces, bShowDebugShapes, bShowLayerColors,
+		                    bShowCharacterInfo, bShowSlomo);
+		if (bShowTraces)
+		{
+			return TraceType;
+		}
+	}
+
+	return EDrawDebugTrace::Type::None;
 }

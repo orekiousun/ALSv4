@@ -45,14 +45,18 @@ protected:
 
 	// Tick相关
 	void SetEssentialValues();
-	void CacheValues();
-	void DrawDebugShapes();
+	// 计算并更新步态，根据步态调用UpdateDynamicMovementSettings
 	void UpdateCharacterMovement();
+	// 更新CharacterMovementComponent速度、加速度等参数
 	void UpdateDynamicMovementSettings(EALSGait InGait);
+	// 更新在地面上的旋转
 	void UpdateGroundedRotation();
+	// 更新在空中的旋转
 	void UpdateInAirRotation();
 	void SmoothCharacterRotation(FRotator InRotation, float TargetInterpSpeed, float ActorInterpSpeed);
 	void LimitRotation(float AimYawMin, float AimYawMax, float InterpSpeed);
+	void CacheValues();
+	void DrawDebugShapes();
 	void RagdollUpdate();
 
 	// 状态改变
@@ -71,11 +75,14 @@ protected:
 	void OnLookLeftRightTriggered(const FInputActionValue& Value);
 	void OnJumpTriggered(const FInputActionValue& Value);
 	void OnJumpCompleted(const FInputActionValue& Value);
+	// 切换站立和下蹲
 	void OnStanceTriggered(const FInputActionValue& Value);
+	// 切换步态
 	void OnWalkTriggered(const FInputActionValue& Value);
 	void OnWalkCompleted(const FInputActionValue& Value);
 	void OnSprintTriggered(const FInputActionValue& Value);
 	void OnSprintCompleted(const FInputActionValue& Value);
+	// 切换旋转模式
 	void OnSelectRotationMode1Triggered(const FInputActionValue& Value);
 	void OnSelectRotationMode2Triggered(const FInputActionValue& Value);
 	void OnAimTriggered(const FInputActionValue& Value);
@@ -98,11 +105,12 @@ protected:
 	                 EALSMantleType MantleType);
 	void MantleEnd();
 	void MantleUpdate();
-	void CapsuleHasRoomCheck();
+	bool CapsuleHasRoomCheck(UCapsuleComponent* Capsule, FVector TargetLocation, float HeightOffset, float RadiusOffset, EDrawDebugTrace::Type DebugType);
 	FALSMantleAsset GetMantleAsset(EALSMantleType MantleType);
 
 	// Utils
 	float GetAnimCurveValue(FName CurveName) const;
+	FVector GetPlayerMovementInput();
 	EALSGait GetAllowedGait() const;
 	EALSGait GetActualGait(EALSGait InGait) const;
 	bool CanSprint() const;
@@ -110,6 +118,11 @@ protected:
 	float GetMappedSpeed() const;
 	bool CanUpdateMovingRotation() const;
 	float CalcGroundedRotationRate() const;
+	// 获取胶囊体脚部位置
+	FVector GetCapsuleBaseLocation(float ZOffset);
+	// 输入胶囊体脚部位置，计算胶囊体中心位置
+	FVector GetCapsuleLocationFormBase(FVector BaseLocation, float ZOffset);
+	EDrawDebugTrace::Type GetTraceDebugType(EDrawDebugTrace::Type TraceType) const;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Config)
 	FALSMovementStateSettings MovementData;
@@ -148,7 +161,7 @@ protected:
 	EALSOverlayState PrevOverlayState;
 
 	FVector Acceleration;
-	FVector PreviousVelocity;
+	FVector PrevVelocity;
 
 	float Speed;
 	bool bIsMoving;
@@ -168,5 +181,5 @@ protected:
 	// 标识需要在落地时翻滚
 	bool bBreakFall;
 	FTimerHandle BreakFallTimerHandle;
-	FTimerHandle ResetMovementBrakingFrictionFactorTimerHandle;
+	FTimerHandle BrakingFrictionFactorTimerHandle;
 };

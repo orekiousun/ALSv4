@@ -776,104 +776,157 @@ void AALSBaseCharacter::RagdollEnd()
 
 bool AALSBaseCharacter::MantleCheck(const FALSMantleTraceSettings& MantleTraceSettings, EDrawDebugTrace::Type DebugType)
 {
-	FVector InitialTraceImpactPoint;
-	FVector InitialTraceImpactNormal;
-	FVector DownTraceLocation;
-	UPrimitiveComponent* HitComponent;
-	FTransform TargetTransform;
-	float MantleHeight = 0.f;
-	EALSMantleType MantleType = EALSMantleType::LowMantle;
-	FVector CapsuleBaseLocation = GetCapsuleBaseLocation(2.f);
-	FVector MovementInput = GetPlayerMovementInput();
-	TArray<AActor*> ActorsToIgnore;
-
-	// HitResult.bBlockingHit: 为是否发生了Block类型的碰撞，如果为false则代表发生了Overlap
-	// HitResult.bStartPenetrating: 是否发生渗透现象，即碰撞起点是否在物体内部
-	// HitResult.Location: 当没有bStartPenetrating时为:碰撞时碰撞体所在位置. 当有bStartPenetrating时与TraceStart相等
-	// HitResult.ImpactPoint: 碰撞点位置
-
-	{
-		// 从输入方向后方向前方做Capsule Trace
-		// 第一次Trace：从输入方向后30cm向前进距离做Trace，用于Trace的胶囊体位置保持在Trace范围中心，高度和最大最小高度差一致
-		// TraceStart: CapsuleBaseLocation向输入方向后退30cm再加上Trace范围的中点
-		FVector TraceStart = CapsuleBaseLocation * MovementInput * -30 + FVector(
-			0.f, 0.f, (MantleTraceSettings.MinLedgeHeight + MantleTraceSettings.MaxLedgeHeight) / 2);
-		// TraceEnd: TraceStart向输入方向前进配置的距离
-		FVector TraceEnd = TraceStart + MovementInput * MantleTraceSettings.ReachDistance;
-		// TraceRadius: 配置值
-		float TraceRadius = MantleTraceSettings.ForwardTraceRadius;
-		// TraceHalfHeight: 最大高度和最小高度差的一半
-		float TraceHalfHeight = (MantleTraceSettings.MaxLedgeHeight - MantleTraceSettings.MinLedgeHeight) / 2 + 1;
-
-		FHitResult HitResult;
-		UKismetSystemLibrary::CapsuleTraceSingle(this, TraceStart, TraceEnd, TraceRadius, TraceHalfHeight,
-		                                         ETraceTypeQuery::TraceTypeQuery3, false, ActorsToIgnore,
-		                                         GetTraceDebugType(DebugType), HitResult, true);
-		// 必须要有命中且命中点可以行走才继续攀爬检测
-		if (GetCharacterMovement() && GetCharacterMovement()->IsWalkable(HitResult) && HitResult.bBlockingHit && !
-			HitResult.bStartPenetrating)
-		{
-			InitialTraceImpactPoint = HitResult.ImpactPoint;
-			InitialTraceImpactNormal = HitResult.ImpactNormal;
-		}
-		else
-		{
-			return false;
-		}
-	}
-
-	{
-		// 第二次Trace，从命中点上方向下方做Sphere Trace
-		FVector TraceEnd = FVector(InitialTraceImpactPoint.X, InitialTraceImpactPoint.Y, CapsuleBaseLocation.Z);
-		FVector TraceStart = TraceEnd + FVector(
-			0.f, 0.f, MantleTraceSettings.MaxLedgeHeight + MantleTraceSettings.DownwardTraceRadius + 1);
-		float TraceRadius = MantleTraceSettings.DownwardTraceRadius;
-		FHitResult HitResult;
-		UKismetSystemLibrary::SphereTraceSingle(this, TraceStart, TraceEnd, TraceRadius, TraceTypeQuery3, false,
-		                                        ActorsToIgnore, GetTraceDebugType(DebugType), HitResult, true);
-
-		if (GetCharacterMovement() && GetCharacterMovement()->IsWalkable(HitResult) && HitResult.bBlockingHit)
-		{
-			// 取碰撞时球形的下顶点
-			DownTraceLocation = FVector(HitResult.Location.X, HitResult.Location.Y, HitResult.ImpactPoint.Z);
-			HitComponent = HitResult.GetComponent();
-		}
-		else
-		{
-			return false;
-		}
-	}
-
-	{
-		// 第三次Trace，检测是否可以把角色放到目标位置上
-		FVector TargetCapsuleLocation = GetCapsuleLocationFormBase(DownTraceLocation, 2.f);
-		if (!CapsuleHasRoomCheck(GetCapsuleComponent(), TargetCapsuleLocation, 0.f, 0.f, DebugType))
-		{
-			return false;
-		}
-
-		FRotator TargetCapsuleRotation = UKismetMathLibrary::Conv_VectorToRotator(
-			InitialTraceImpactNormal * FVector(-1.f, -1.f, 0));
-		TargetTransform = FTransform(TargetCapsuleRotation, TargetCapsuleLocation, FVector::OneVector);
-		MantleHeight = (TargetCapsuleLocation - GetActorLocation()).Z;
-	}
-
-	switch (MovementState)
-	{
-	case EALSMovementState::InAir:
-		MantleType = EALSMantleType::FallingCatch;
-	default:
-		MantleType = MantleHeight > 125.f ? EALSMantleType::HighMantle : EALSMantleType::LowMantle;
-	}
-
-	// 攀爬检测通过，开始攀爬
-	MantleStart(MantleHeight, TargetTransform, HitComponent, MantleType);
-	return true;
+	// Mantle相关的先注释掉吧，个人认为作者这里的实现过于复杂了，只有检测可以参考一下
+	// 个人认为作者这里的实现过于复杂了，和角色本身的耦合也比较严重，后面再思考如何优化
+	return false;
+	//
+	//
+	// FVector InitialTraceImpactPoint;
+	// FVector InitialTraceImpactNormal;
+	// FVector DownTraceLocation;
+	// UPrimitiveComponent* HitComponent;
+	// FTransform TargetTransform;
+	// float MantleHeight = 0.f;
+	// EALSMantleType MantleType = EALSMantleType::LowMantle;
+	// FVector CapsuleBaseLocation = GetCapsuleBaseLocation(2.f);
+	// FVector MovementInput = GetPlayerMovementInput();
+	// TArray<AActor*> ActorsToIgnore;
+	//
+	// // HitResult.bBlockingHit: 为是否发生了Block类型的碰撞，如果为false则代表发生了Overlap
+	// // HitResult.bStartPenetrating: 是否发生渗透现象，即碰撞起点是否在物体内部
+	// // HitResult.Location: 当没有bStartPenetrating时为:碰撞时碰撞体所在位置. 当有bStartPenetrating时与TraceStart相等
+	// // HitResult.ImpactPoint: 碰撞点位置
+	//
+	// {
+	// 	// 从输入方向后方向前方做Capsule Trace
+	// 	// 第一次Trace：从输入方向后30cm向前进距离做Trace，用于Trace的胶囊体位置保持在Trace范围中心，高度和最大最小高度差一致
+	// 	// TraceStart: CapsuleBaseLocation向输入方向后退30cm再加上Trace范围的中点
+	// 	FVector TraceStart = CapsuleBaseLocation * MovementInput * -30 + FVector(
+	// 		0.f, 0.f, (MantleTraceSettings.MinLedgeHeight + MantleTraceSettings.MaxLedgeHeight) / 2);
+	// 	// TraceEnd: TraceStart向输入方向前进配置的距离
+	// 	FVector TraceEnd = TraceStart + MovementInput * MantleTraceSettings.ReachDistance;
+	// 	// TraceRadius: 配置值
+	// 	float TraceRadius = MantleTraceSettings.ForwardTraceRadius;
+	// 	// TraceHalfHeight: 最大高度和最小高度差的一半
+	// 	float TraceHalfHeight = (MantleTraceSettings.MaxLedgeHeight - MantleTraceSettings.MinLedgeHeight) / 2 + 1;
+	//
+	// 	FHitResult HitResult;
+	// 	UKismetSystemLibrary::CapsuleTraceSingle(this, TraceStart, TraceEnd, TraceRadius, TraceHalfHeight,
+	// 	                                         ETraceTypeQuery::TraceTypeQuery3, false, ActorsToIgnore,
+	// 	                                         GetTraceDebugType(DebugType), HitResult, true);
+	// 	// 必须要有命中且命中点可以行走才继续攀爬检测
+	// 	if (GetCharacterMovement() && GetCharacterMovement()->IsWalkable(HitResult) && HitResult.bBlockingHit && !
+	// 		HitResult.bStartPenetrating)
+	// 	{
+	// 		InitialTraceImpactPoint = HitResult.ImpactPoint;
+	// 		InitialTraceImpactNormal = HitResult.ImpactNormal;
+	// 	}
+	// 	else
+	// 	{
+	// 		return false;
+	// 	}
+	// }
+	//
+	// {
+	// 	// 第二次Trace，从命中点上方向下方做Sphere Trace
+	// 	FVector TraceEnd = FVector(InitialTraceImpactPoint.X, InitialTraceImpactPoint.Y, CapsuleBaseLocation.Z);
+	// 	FVector TraceStart = TraceEnd + FVector(
+	// 		0.f, 0.f, MantleTraceSettings.MaxLedgeHeight + MantleTraceSettings.DownwardTraceRadius + 1);
+	// 	float TraceRadius = MantleTraceSettings.DownwardTraceRadius;
+	// 	FHitResult HitResult;
+	// 	UKismetSystemLibrary::SphereTraceSingle(this, TraceStart, TraceEnd, TraceRadius, TraceTypeQuery3, false,
+	// 	                                        ActorsToIgnore, GetTraceDebugType(DebugType), HitResult, true);
+	//
+	// 	if (GetCharacterMovement() && GetCharacterMovement()->IsWalkable(HitResult) && HitResult.bBlockingHit)
+	// 	{
+	// 		// 取碰撞时球形的下顶点
+	// 		DownTraceLocation = FVector(HitResult.Location.X, HitResult.Location.Y, HitResult.ImpactPoint.Z);
+	// 		HitComponent = HitResult.GetComponent();
+	// 	}
+	// 	else
+	// 	{
+	// 		return false;
+	// 	}
+	// }
+	//
+	// {
+	// 	// 第三次Trace，检测是否可以把角色放到目标位置上
+	// 	FVector TargetCapsuleLocation = GetCapsuleLocationFormBase(DownTraceLocation, 2.f);
+	// 	if (!CapsuleHasRoomCheck(GetCapsuleComponent(), TargetCapsuleLocation, 0.f, 0.f, DebugType))
+	// 	{
+	// 		return false;
+	// 	}
+	//
+	// 	FRotator TargetCapsuleRotation = UKismetMathLibrary::Conv_VectorToRotator(
+	// 		InitialTraceImpactNormal * FVector(-1.f, -1.f, 0));
+	// 	TargetTransform = FTransform(TargetCapsuleRotation, TargetCapsuleLocation, FVector::OneVector);
+	// 	MantleHeight = (TargetCapsuleLocation - GetActorLocation()).Z;
+	// }
+	//
+	// switch (MovementState)
+	// {
+	// case EALSMovementState::InAir:
+	// 	MantleType = EALSMantleType::FallingCatch;
+	// default:
+	// 	MantleType = MantleHeight > 125.f ? EALSMantleType::HighMantle : EALSMantleType::LowMantle;
+	// }
+	//
+	// // 攀爬检测通过，开始攀爬
+	// MantleStart(MantleHeight, FALSComponentAndTransform(TargetTransform, HitComponent), MantleType);
+	// return true;
 }
 
-void AALSBaseCharacter::MantleStart(float MantleHeight, FTransform MantleLedgeTransform,
-                                    UPrimitiveComponent* MantleLedgeComponent, EALSMantleType MantleType)
+void AALSBaseCharacter::MantleStart(float MantleHeight, FALSComponentAndTransform MantleLedgeWS,
+                                    EALSMantleType MantleType)
 {
+	return;
+	//
+	// FALSMantleAsset MantleAsset = GetMantleAsset(MantleType);
+	//
+	// // 通过MantleAsset初始化MantleParams
+	// MantleParams.AnimMontage = MantleAsset.AnimMontage;
+	// MantleParams.StartingPosition = UKismetMathLibrary::MapRangeClamped(MantleHeight, MantleAsset.LowHeight,
+	//                                                                     MantleAsset.HighHeight,
+	//                                                                     MantleAsset.LowStartPosition,
+	//                                                                     MantleAsset.HighStartPosition);
+	// MantleParams.PlayRate = UKismetMathLibrary::MapRangeClamped(MantleHeight, MantleAsset.LowHeight,
+	//                                                             MantleAsset.HighHeight, MantleAsset.LowPlayRate,
+	//                                                             MantleAsset.HighPlayRate);
+	// MantleParams.StartingOffset = MantleAsset.StartingOffset;
+	//
+	// // 世界空间转换为局部空间
+	// if (MantleLedgeWS.Component)
+	// {
+	// 	MantleLedgeLS.Component = MantleLedgeWS.Component;
+	// 	FTransform World2Component =
+	// 		UKismetMathLibrary::InvertTransform(MantleLedgeWS.Component->GetComponentToWorld());
+	// 	MantleLedgeLS.Transform = MantleLedgeWS.Transform * World2Component;
+	// }
+	//
+	// // 缓存目标Transform，计算Offset
+	// MantleTarget = MantleLedgeWS.Transform;
+	// FTransform ActorTransform = GetActorTransform();
+	// MantleActualStartOffset = FTransform(ActorTransform.Rotator() - MantleTarget.Rotator(),
+	//                                      ActorTransform.GetLocation() - MantleTarget.GetLocation(),
+	//                                      ActorTransform.GetScale3D() - MantleTarget.GetScale3D());
+	//
+	// // 计算MantleAnimatedOffset
+	// FVector MantleTargetDirection = UKismetMathLibrary::Conv_RotatorToVector(MantleTarget.Rotator());
+	// FVector MantleAnimatedStartLocation = FVector(-MantleTargetDirection.X * MantleParams.StartingOffset.Y,
+	//                                               -MantleTargetDirection.Y * MantleParams.StartingOffset.Y,
+	//                                               -MantleParams.StartingOffset.Z);
+	// FVector MantleAnimatedStartScale = FVector::OneVector - MantleTarget.GetScale3D();
+	// MantleAnimatedStartOffset = FTransform(FRotator::ZeroRotator, MantleAnimatedStartLocation,
+	//                                        MantleAnimatedStartScale);
+	//
+	// // 设置Movement
+	// if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	// {
+	// 	MoveComp->SetMovementMode(MOVE_None);
+	// 	SetMovementState(EALSMovementState::Mantling);
+	// }
+
+	
 }
 
 void AALSBaseCharacter::MantleEnd()

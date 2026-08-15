@@ -90,6 +90,18 @@ enum EALSMantleType
 };
 
 USTRUCT(BlueprintType)
+struct FALSComponentAndTransform
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FTransform Transform;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UPrimitiveComponent* Component;
+};
+
+USTRUCT(BlueprintType)
 struct FALSMovementSettings
 {
 	GENERATED_BODY()
@@ -223,4 +235,18 @@ public:
 	FALSMantleAsset LowMantleAsset;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FALSMantleAsset FallingCatchMantleAsset;
+};
+
+USTRUCT(BlueprintType)
+struct FALSMantleParams
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UAnimMontage* AnimMontage;
+	UCurveVector* Curve;
+	float StartingPosition;
+	float PlayRate;
+	FVector StartingOffset;
 };

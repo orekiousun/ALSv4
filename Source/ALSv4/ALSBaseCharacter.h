@@ -101,11 +101,11 @@ protected:
 
 	// 攀爬
 	bool MantleCheck(const FALSMantleTraceSettings& MantleTraceSettings, EDrawDebugTrace::Type DebugType);
-	void MantleStart(float MantleHeight, FTransform MantleLedgeTransform, UPrimitiveComponent* MantleLedgeComponent,
-	                 EALSMantleType MantleType);
+	void MantleStart(float MantleHeight, FALSComponentAndTransform MantleLedgeWS, EALSMantleType MantleType);
 	void MantleEnd();
 	void MantleUpdate();
-	bool CapsuleHasRoomCheck(UCapsuleComponent* Capsule, FVector TargetLocation, float HeightOffset, float RadiusOffset, EDrawDebugTrace::Type DebugType);
+	bool CapsuleHasRoomCheck(UCapsuleComponent* Capsule, FVector TargetLocation, float HeightOffset, float RadiusOffset,
+	                         EDrawDebugTrace::Type DebugType);
 	FALSMantleAsset GetMantleAsset(EALSMantleType MantleType);
 
 	// Utils
@@ -182,4 +182,11 @@ protected:
 	bool bBreakFall;
 	FTimerHandle BreakFallTimerHandle;
 	FTimerHandle BrakingFrictionFactorTimerHandle;
+
+	// Mantle
+	FALSMantleParams MantleParams;
+	FALSComponentAndTransform MantleLedgeLS;
+	FTransform MantleTarget;
+	FTransform MantleActualStartOffset;
+	FTransform MantleAnimatedStartOffset;
 };

@@ -21,14 +21,24 @@ class ALSV4_API IALSCharacterInterface
 	GENERATED_BODY()
 
 public:
-	virtual void GetCurrentStates(OUT EMovementMode& PawnMovementMode, OUT EALSMovementState MovementState,
-	                              OUT EALSMovementState& PrevMovementState, OUT EALSMovementAction& MovementAction,
-	                              OUT EALSRotationMode& RotationMode, OUT EALSGait& Gait, OUT EALSStance& Stance,
-	                              OUT EALSViewMode ViewMode,
-	                              OUT EALSOverlayState& OverlayState);
-	virtual void GetEssentialValues(OUT FVector& Velocity, OUT FVector& Acceleration, OUT FVector& MovementInput,
-	                                OUT bool bIsMoving, OUT bool bHasMovementInput, OUT float Speed,
-	                                OUT float MovementInputAmount, OUT FRotator& AimingRotation, OUT float AimYawRate);
+	virtual void GetCurrentStates(OUT EMovementMode& OutPawnMovementMode,
+	                              OUT EALSMovementState& OutMovementState,
+	                              OUT EALSMovementState& OutPrevMovementState,
+	                              OUT EALSMovementAction& OutMovementAction,
+	                              OUT EALSRotationMode& OutRotationMode,
+	                              OUT EALSGait& OutGait,
+	                              OUT EALSStance& OutStance,
+	                              OUT EALSViewMode& OutViewMode,
+	                              OUT EALSOverlayState& OutOverlayState);
+	virtual void GetEssentialValues(OUT FVector& OutVelocity,
+	                                OUT FVector& OutAcceleration,
+	                                OUT FVector& OutMovementInput,
+	                                OUT bool& bOutIsMoving,
+	                                OUT bool& bOutHasMovementInput,
+	                                OUT float& OutSpeed,
+	                                OUT float& OutMovementInputAmount,
+	                                OUT FRotator& OutAimingRotation,
+	                                OUT float& OutAimYawRate);
 	virtual void SetMovementState(EALSMovementState NewMovementState);
 	virtual void SetMovementAction(EALSMovementAction NewMovementAction);
 	virtual void SetRotationMode(EALSRotationMode NewRotationMode);

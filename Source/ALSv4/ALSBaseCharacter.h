@@ -40,6 +40,15 @@ public:
 	virtual void SetViewMode(EALSViewMode NewViewMode) override;
 	virtual void SetOverlayState(EALSOverlayState NewOverlayState) override;
 
+	virtual void GetEssentialValues(FVector& OutVelocity, FVector& OutAcceleration, FVector& OutMovementInput,
+	                                bool& bOutIsMoving, bool& bOutHasMovementInput, float& OutSpeed,
+	                                float& OutMovementInputAmount, FRotator& OutAimingRotation,
+	                                float& OutAimYawRate) override;
+	virtual void GetCurrentStates(EMovementMode& OutPawnMovementMode, EALSMovementState& OutMovementState,
+	                              EALSMovementState& OutPrevMovementState, EALSMovementAction& OutMovementAction,
+	                              EALSRotationMode& OutRotationMode, EALSGait& OutGait, EALSStance& OutStance,
+	                              EALSViewMode& OutViewMode, EALSOverlayState& OutOverlayState) override;
+
 protected:
 	void OnBeginPlay();
 

@@ -248,6 +248,45 @@ void AALSBaseCharacter::SetOverlayState(EALSOverlayState NewOverlayState)
 	OnOverlayStateChanged(NewOverlayState);
 }
 
+void AALSBaseCharacter::GetEssentialValues(FVector& OutVelocity, FVector& OutAcceleration, FVector& OutMovementInput,
+                                           bool& bOutIsMoving, bool& bOutHasMovementInput, float& OutSpeed,
+                                           float& OutMovementInputAmount,
+                                           FRotator& OutAimingRotation, float& OutAimYawRate)
+{
+	IALSCharacterInterface::GetEssentialValues(OutVelocity, OutAcceleration, OutMovementInput, bOutIsMoving,
+	                                           bOutHasMovementInput, OutSpeed,
+	                                           OutMovementInputAmount, OutAimingRotation, OutAimYawRate);
+	OutVelocity = GetVelocity();
+	OutAcceleration = Acceleration;
+	OutMovementInput = GetCharacterMovement() ? GetCharacterMovement()->GetCurrentAcceleration() : FVector();
+	bOutIsMoving = bIsMoving;
+	bOutHasMovementInput = bHasMovementInput;
+	OutSpeed = Speed;
+	OutMovementInputAmount = MovementInputAmount;
+	OutAimingRotation = GetControlRotation();
+	OutAimYawRate = AimYawRate;
+}
+
+void AALSBaseCharacter::GetCurrentStates(EMovementMode& OutPawnMovementMode, EALSMovementState& OutMovementState,
+                                         EALSMovementState& OutPrevMovementState, EALSMovementAction& OutMovementAction,
+                                         EALSRotationMode& OutRotationMode,
+                                         EALSGait& OutGait, EALSStance& OutStance, EALSViewMode& OutViewMode,
+                                         EALSOverlayState& OutOverlayState)
+{
+	IALSCharacterInterface::GetCurrentStates(OutPawnMovementMode, OutMovementState, OutPrevMovementState,
+	                                         OutMovementAction, OutRotationMode, OutGait,
+	                                         OutStance, OutViewMode, OutOverlayState);
+	if (GetCharacterMovement()) OutPawnMovementMode = GetCharacterMovement()->MovementMode;
+	OutMovementState = MovementState;
+	OutPrevMovementState = PrevMovementState;
+	OutMovementAction = MovementAction;
+	OutRotationMode = RotationMode;
+	OutGait = Gait;
+	OutStance = Stance;
+	OutViewMode = ViewMode;
+	OutOverlayState = OverlayState;
+}
+
 void AALSBaseCharacter::OnBeginPlay()
 {
 	// 缓存MainAnimInstance
@@ -925,8 +964,6 @@ void AALSBaseCharacter::MantleStart(float MantleHeight, FALSComponentAndTransfor
 	// 	MoveComp->SetMovementMode(MOVE_None);
 	// 	SetMovementState(EALSMovementState::Mantling);
 	// }
-
-	
 }
 
 void AALSBaseCharacter::MantleEnd()

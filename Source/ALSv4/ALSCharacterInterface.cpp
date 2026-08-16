@@ -3,17 +3,15 @@
 
 #include "ALSCharacterInterface.h"
 
-
-// Add default functionality here for any IALSCharacterInterface functions that are not pure virtual.
-void IALSCharacterInterface::GetCurrentStates(EMovementMode& PawnMovementMode, EALSMovementState MovementState,
-	EALSMovementState& PrevMovementState, EALSMovementAction& MovementAction, EALSRotationMode& RotationMode,
-	EALSGait& Gait, EALSStance& Stance, EALSViewMode ViewMode, EALSOverlayState& OverlayState)
+void IALSCharacterInterface::GetCurrentStates(EMovementMode& OutPawnMovementMode, EALSMovementState& OutMovementState,
+	EALSMovementState& OutPrevMovementState, EALSMovementAction& OutMovementAction, EALSRotationMode& OutRotationMode,
+	EALSGait& OutGait, EALSStance& OutStance, EALSViewMode& OutViewMode, EALSOverlayState& OutOverlayState)
 {
 }
 
-void IALSCharacterInterface::GetEssentialValues(FVector& Velocity, FVector& Acceleration, FVector& MovementInput,
-	bool bIsMoving, bool bHasMovementInput, float Speed, float MovementInputAmount, FRotator& AimingRotation,
-	float AimYawRate)
+void IALSCharacterInterface::GetEssentialValues(FVector& OutVelocity, FVector& OutAcceleration,
+	FVector& OutMovementInput, bool& bOutIsMoving, bool& bOutHasMovementInput, float& OutSpeed,
+	float& OutMovementInputAmount, FRotator& OutAimingRotation, float& OutAimYawRate)
 {
 }
 

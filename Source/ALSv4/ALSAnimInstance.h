@@ -25,14 +25,49 @@ protected:
 	void UpdateRotationValues();
 	void UpdateInAirValues();
 	void UpdateRagdollValues();
+	bool ShouldMoveCheck();
+	bool CanRotateInPlace();
 	void RotateInPlaceCheck();
+	bool CanTurnInPlace();
 	void TurnInPlaceCheck();
+	bool CanDynamicTransition();
 	void DynamicTransitionCheck();
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Config)
+	// Movement
+	FALSVelocityBlend CalcVelocityBlend();
+	float CalcDiagonalScaleAmount();
+	FVector CalcRelativeAccelerationAmount();
+	float CalcWalkRunBlend();
+	float CalcStrideBlend();
+	float CalcStandingPlayRate();
+	float CalcCrouchingPlayRate();
+
+	// Rotation
+	EALSMovementDirection CalcMovementDirection();
+
+	// Config
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|InterpSpeed")
 	float SmoothedAimingRotationInterpSpeed = 10.f;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Config)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|InterpSpeed")
 	float InputYawOffsetTimeInterpSpeed = 8.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|InterpSpeed")
+	float VelocityBlendInterpSpeed = 12.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
+	UCurveFloat* DiagonalScaleAmountCurve;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|InterpSpeed")
+	float GroundedLeanInterpSpeed = 4.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
+	UCurveFloat* StrideBlend_N_Walk;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
+	UCurveFloat* StrideBlend_N_Run;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
+	UCurveFloat* StrideBlend_C_Walk;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
+	FALSAnimatedSpeed AnimatedSpeed;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
+	UCurveVector* YawOffset_FB;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
+	UCurveVector* YawOffset_LR;
 
 	TObjectPtr<AALSBaseCharacter> Character;
 	float DeltaTime;
@@ -54,6 +89,25 @@ protected:
 	EALSStance Stance;
 	EALSViewMode ViewMode;
 	EALSOverlayState OverlayState;
+	// MovmentValues
+	bool bShouldMove;
+	FALSVelocityBlend VelocityBlend;
+	float DiagonalScaleAmount;
+	FVector RelativeAccelerationAmount;
+	FALSLeanAmount LeanAmount;
+	float WalkRunBlend;
+	float StrideBlend;
+	float StandingPlayRate;
+	float CrouchingPlayRate;
+	// RotationValues
+	EALSMovementDirection MovementDirection;
+	float FYaw;
+	float BYaw;
+	float LYaw;
+	float RYaw;
+	bool Rotate_L;
+	bool Rotate_R;
+	float ElapsedDelayTime;
 	// AimingValues
 	FRotator SmoothedAimingRotation;
 	FRotator SpineRotation;
@@ -64,4 +118,29 @@ protected:
 	float ForwardYawTime;
 	float LeftYawTime;
 	float RightYawTime;
+	// LayerValues
+	int OverlayOverrideState;
+	float Enable_AimOffset;
+	float BasePose_N;
+	float BasePose_CLF;
+	float Arm_L;
+	float Arm_L_Add;
+	float Arm_L_LS;
+	float Arm_L_MS;
+	float Arm_R;
+	float Arm_R_Add;
+	float Arm_R_LS;
+	float Arm_R_MS;
+	float Hand_L;
+	float Hand_R;
+	float Legs;
+	float Legs_Add;
+	float Pelvis;
+	float Pelvis_Add;
+	float Spine;
+	float Spine_Add;
+	float Head;
+	float Head_Add;
+	float Enable_HandIK_L;
+	float Enable_HandIK_R;
 };

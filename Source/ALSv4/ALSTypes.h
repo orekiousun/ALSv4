@@ -82,11 +82,20 @@ enum class EALSOverlayState: uint8
 };
 
 UENUM(BlueprintType)
-enum EALSMantleType
+enum class EALSMantleType: uint8
 {
 	HighMantle = 0,
 	LowMantle = 1,
 	FallingCatch = 2,
+};
+
+UENUM()
+enum class EALSMovementDirection
+{
+	Forward = 0,
+	Right = 1,
+	Left = 2,
+	Backward = 3,
 };
 
 USTRUCT(BlueprintType)
@@ -249,4 +258,48 @@ public:
 	float StartingPosition;
 	float PlayRate;
 	FVector StartingOffset;
+};
+
+USTRUCT(BlueprintType)
+struct FALSVelocityBlend
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float F;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float B;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float L;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float R;
+};
+
+USTRUCT(BlueprintType)
+struct FALSLeanAmount
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float LR;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float FB;
+};
+
+USTRUCT(BlueprintType)
+struct FALSAnimatedSpeed
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float AnimatedWalkSpeed = 150.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float AnimatedRunSpeed = 350.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float AnimatedSprintSpeed = 600.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float AnimatedCrouchSpeed = 150.f;
 };

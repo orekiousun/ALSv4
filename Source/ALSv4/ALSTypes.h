@@ -303,3 +303,77 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float AnimatedCrouchSpeed = 150.f;
 };
+
+USTRUCT(BlueprintType)
+struct FALSRotateInPlaceSettings
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float RotateMinThreshold = -50.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float RotateMaxThreshold = 50.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float AimYawRateMinRange = 90.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float AimYawRateMaxRange = 270.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float MinPlayRate = 1.15f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float MaxPlayRate = 3.f;
+};
+
+USTRUCT(BlueprintType)
+struct FALSTurnInPlaceAsset
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UAnimSequence* Anim;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float AnimateAngle;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FName SlotName;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float PlayRate;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	bool bScaleTurnAngle;
+};
+
+USTRUCT(BlueprintType)
+struct FALSTurnInPlaceSettings
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float TurnCheckMinAngle = 45.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float TurnCheckMaxAngle = 180.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float Turn180Threshold = 130.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float AimYawRateLimit = 50.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float MinAngleDelay = 0.75f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float MaxAngleDelay = 0.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSTurnInPlaceAsset N_TurnIP_L90;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSTurnInPlaceAsset N_TurnIP_R90;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSTurnInPlaceAsset N_TurnIP_L180;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSTurnInPlaceAsset N_TurnIP_R180;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSTurnInPlaceAsset CLF_TurnIP_L90;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSTurnInPlaceAsset CLF_TurnIP_R90;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSTurnInPlaceAsset CLF_TurnIP_L180;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FALSTurnInPlaceAsset CLF_TurnIP_R180;
+};

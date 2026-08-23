@@ -25,15 +25,18 @@ protected:
 	void UpdateRotationValues();
 	void UpdateInAirValues();
 	void UpdateRagdollValues();
-	bool ShouldMoveCheck();
+	// RotateInPlace
 	bool CanRotateInPlace();
 	void RotateInPlaceCheck();
+	// TurnInPlace
 	bool CanTurnInPlace();
 	void TurnInPlaceCheck();
+	void TurnInPlace(FRotator TargetRotation, float PlayRateScale, float StartTime, bool bOverrideCurrent);
+	// DynamicTransition
 	bool CanDynamicTransition();
 	void DynamicTransitionCheck();
-
 	// Movement
+	bool ShouldMoveCheck();
 	FALSVelocityBlend CalcVelocityBlend();
 	float CalcDiagonalScaleAmount();
 	FVector CalcRelativeAccelerationAmount();
@@ -41,33 +44,40 @@ protected:
 	float CalcStrideBlend();
 	float CalcStandingPlayRate();
 	float CalcCrouchingPlayRate();
-
-	// Rotation
 	EALSMovementDirection CalcMovementDirection();
 
 	// Config
+	// InterpSpeed
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|InterpSpeed")
 	float SmoothedAimingRotationInterpSpeed = 10.f;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|InterpSpeed")
 	float InputYawOffsetTimeInterpSpeed = 8.f;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|InterpSpeed")
 	float VelocityBlendInterpSpeed = 12.f;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
-	UCurveFloat* DiagonalScaleAmountCurve;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|InterpSpeed")
 	float GroundedLeanInterpSpeed = 4.f;
+	// Curve
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
+	UCurveFloat* DiagonalScaleAmountCurve;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
 	UCurveFloat* StrideBlend_N_Walk;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
 	UCurveFloat* StrideBlend_N_Run;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
 	UCurveFloat* StrideBlend_C_Walk;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
-	FALSAnimatedSpeed AnimatedSpeed;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
 	UCurveVector* YawOffset_FB;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
 	UCurveVector* YawOffset_LR;
+	// AnimatedSpeed
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
+	FALSAnimatedSpeed AnimatedSpeed;
+	// RotateInPlace
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
+	FALSRotateInPlaceSettings RotateInPlaceSettings;
+	// TurnInPlace
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
+	FALSTurnInPlaceSettings TurnInPlaceSettings;
 
 	TObjectPtr<AALSBaseCharacter> Character;
 	float DeltaTime;
@@ -89,7 +99,7 @@ protected:
 	EALSStance Stance;
 	EALSViewMode ViewMode;
 	EALSOverlayState OverlayState;
-	// MovmentValues
+	// MovementValues
 	bool bShouldMove;
 	FALSVelocityBlend VelocityBlend;
 	float DiagonalScaleAmount;
@@ -99,14 +109,15 @@ protected:
 	float StrideBlend;
 	float StandingPlayRate;
 	float CrouchingPlayRate;
-	// RotationValues
 	EALSMovementDirection MovementDirection;
+	// RotationValues
 	float FYaw;
 	float BYaw;
 	float LYaw;
 	float RYaw;
 	bool Rotate_L;
 	bool Rotate_R;
+	float RotateRate;
 	float ElapsedDelayTime;
 	// AimingValues
 	FRotator SmoothedAimingRotation;

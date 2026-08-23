@@ -38,11 +38,13 @@ void UALSAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 			bShouldMove = ShouldMoveCheck();
 			if (bOldShouldMove && bShouldMove)
 			{
+				// 正在移动时
 				UpdateMovementValues();
 				UpdateRotationValues();
 			}
 			else if (!bOldShouldMove && !bShouldMove)
 			{
+				// 没有移动时
 				if (CanRotateInPlace())
 				{
 					RotateInPlaceCheck();
@@ -69,6 +71,7 @@ void UALSAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 			}
 			else if (!bOldShouldMove && bShouldMove)
 			{
+				// 开始移动时
 				ElapsedDelayTime = 0.0f;
 				Rotate_L = false;
 				Rotate_R = false;
@@ -210,25 +213,61 @@ bool UALSAnimInstance::ShouldMoveCheck()
 
 bool UALSAnimInstance::CanRotateInPlace()
 {
-	return false;
+	return RotationMode == EALSRotationMode::Aiming || ViewMode == EALSViewMode::FirstPerson;
 }
 
 void UALSAnimInstance::RotateInPlaceCheck()
 {
+	// 超过对应角度阈值需要向左/向右旋转
+	Rotate_L = AimingAngle.X < RotateInPlaceSettings.RotateMinThreshold;
+	Rotate_R = AimingAngle.X > RotateInPlaceSettings.RotateMaxThreshold;
+
+	// 更新RotateRate
+	if (Rotate_L || Rotate_R)
+	{
+		RotateRate = UKismetMathLibrary::MapRangeClamped(AimYawRate, RotateInPlaceSettings.AimYawRateMinRange,
+		                                                 RotateInPlaceSettings.AimYawRateMaxRange,
+		                                                 RotateInPlaceSettings.MinPlayRate,
+		                                                 RotateInPlaceSettings.MaxPlayRate);
+	}
 }
 
 bool UALSAnimInstance::CanTurnInPlace()
 {
-	return false;
+	return RotationMode == EALSRotationMode::LookingDirection && ViewMode == EALSViewMode::ThirdPerson && GetCurveValue(
+		TEXT("Enable_Transition")) > 0.99;
 }
 
 void UALSAnimInstance::TurnInPlaceCheck()
+{
+	if (UKismetMathLibrary::Abs(AimingAngle.X) > TurnInPlaceSettings.TurnCheckMinAngle && AimYawRate <
+		TurnInPlaceSettings.AimYawRateLimit)
+	{
+		// 延迟一定时间再旋转
+		ElapsedDelayTime += DeltaTime;
+		float RangeClampedDelay = UKismetMathLibrary::MapRangeClamped(AimingAngle.X,
+		                                                              TurnInPlaceSettings.TurnCheckMinAngle,
+		                                                              TurnInPlaceSettings.TurnCheckMaxAngle,
+		                                                              TurnInPlaceSettings.MinAngleDelay,
+		                                                              TurnInPlaceSettings.MaxAngleDelay);
+		if (ElapsedDelayTime > RangeClampedDelay)
+		{
+			TurnInPlace(FRotator(0.f, AimingRotation.Yaw, 0.f), 1.f, 0.f, false);
+		}
+	}
+	else
+	{
+		ElapsedDelayTime = 0.f;
+	}
+}
+
+void UALSAnimInstance::TurnInPlace(FRotator TargetRotation, float PlayRateScale, float StartTime, bool bOverrideCurrent)
 {
 }
 
 bool UALSAnimInstance::CanDynamicTransition()
 {
-	return false;
+	return GetCurveValue(TEXT("Enable_Transition")) == 1.f;
 }
 
 void UALSAnimInstance::DynamicTransitionCheck()

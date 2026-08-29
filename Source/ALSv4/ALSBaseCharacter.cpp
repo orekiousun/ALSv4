@@ -989,9 +989,21 @@ bool AALSBaseCharacter::CapsuleHasRoomCheck(UCapsuleComponent* Capsule, FVector 
 	FVector TraceEnd = TargetLocation - FVector(0.f, 0.f, Height);
 	float TraceRadius = Capsule->GetScaledCapsuleRadius() + RadiusOffset;
 	FHitResult HitResult;
-	UKismetSystemLibrary::SphereTraceSingleByProfile(this, TraceStart, TraceEnd, TraceRadius, TEXT("ALS_Character"),
-	                                                 false, ActorsToIgnore, GetTraceDebugType(DebugType), HitResult,
-	                                                 true, FColor::Green, FColor::Purple, 1.f);
+	UKismetSystemLibrary::SphereTraceSingleByProfile(
+		this,
+		TraceStart,
+		TraceEnd,
+		TraceRadius,
+		TEXT("ALS_Character"),
+		false,
+		ActorsToIgnore,
+		GetTraceDebugType(DebugType),
+		HitResult,
+		true,
+		FColor::Green,
+		FColor::Purple,
+		1.f
+	);
 
 	return UKismetMathLibrary::BooleanNOR(HitResult.bBlockingHit, HitResult.bStartPenetrating);
 }
@@ -1184,19 +1196,9 @@ FVector AALSBaseCharacter::GetCapsuleLocationFormBase(FVector BaseLocation, floa
 
 EDrawDebugTrace::Type AALSBaseCharacter::GetTraceDebugType(EDrawDebugTrace::Type TraceType) const
 {
-	if (AALSPlayerController* ALSPC = GetController<AALSPlayerController>())
+	if (IALSControllerInterface* Interface = GetController<IALSControllerInterface>())
 	{
-		TObjectPtr<ACharacter> DebugFocusCharacter;
-		bool bDebugView;
-		bool bShowHUD;
-		bool bShowTraces;
-		bool bShowDebugShapes;
-		bool bShowLayerColors;
-		bool bShowCharacterInfo;
-		bool bShowSlomo;
-		ALSPC->GetDebugInfo(DebugFocusCharacter, bDebugView, bShowHUD, bShowTraces, bShowDebugShapes, bShowLayerColors,
-		                    bShowCharacterInfo, bShowSlomo);
-		if (bShowTraces)
+		if (Interface->GetShowTraces())
 		{
 			return TraceType;
 		}

@@ -4,8 +4,15 @@
 #include "ALSAnimInstance.h"
 
 #include "ALSBlueprintFunctionLibrary.h"
+#include "ALSControllerInterface.h"
+#include "KismetAnimationLibrary.h"
+#include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
+
+class IALSControllerInterface;
+class AALSPlayerController;
 
 void UALSAnimInstance::NativeInitializeAnimation()
 {
@@ -198,14 +205,6 @@ void UALSAnimInstance::UpdateRotationValues()
 	RYaw = YawOffset_LR_Val.Y;
 }
 
-void UALSAnimInstance::UpdateInAirValues()
-{
-}
-
-void UALSAnimInstance::UpdateRagdollValues()
-{
-}
-
 bool UALSAnimInstance::ShouldMoveCheck()
 {
 	return (bIsMoving && bHasMovementInput) || Speed > 150.f;
@@ -225,10 +224,12 @@ void UALSAnimInstance::RotateInPlaceCheck()
 	// 更新RotateRate
 	if (Rotate_L || Rotate_R)
 	{
-		RotateRate = UKismetMathLibrary::MapRangeClamped(AimYawRate, RotateInPlaceSettings.AimYawRateMinRange,
+		RotateRate = UKismetMathLibrary::MapRangeClamped(AimYawRate,
+		                                                 RotateInPlaceSettings.AimYawRateMinRange,
 		                                                 RotateInPlaceSettings.AimYawRateMaxRange,
 		                                                 RotateInPlaceSettings.MinPlayRate,
-		                                                 RotateInPlaceSettings.MaxPlayRate);
+		                                                 RotateInPlaceSettings.MaxPlayRate
+		);
 	}
 }
 
@@ -252,7 +253,12 @@ void UALSAnimInstance::TurnInPlaceCheck()
 		                                                              TurnInPlaceSettings.MaxAngleDelay);
 		if (ElapsedDelayTime > RangeClampedDelay)
 		{
-			TurnInPlace(FRotator(0.f, AimingRotation.Yaw, 0.f), 1.f, 0.f, false);
+			TurnInPlace(
+				FRotator(0.f, AimingRotation.Yaw, 0.f),
+				1.f,
+				0.f,
+				false
+			);
 		}
 	}
 	else
@@ -263,6 +269,58 @@ void UALSAnimInstance::TurnInPlaceCheck()
 
 void UALSAnimInstance::TurnInPlace(FRotator TargetRotation, float PlayRateScale, float StartTime, bool bOverrideCurrent)
 {
+	float TurnAngle = TargetRotation.Yaw - Character->GetActorRotation().Yaw;
+	FALSTurnInPlaceAsset TargetTurnAsset;
+	if (UKismetMathLibrary::Abs(TurnAngle) < TurnInPlaceSettings.Turn180Threshold)
+	{
+		if (TurnAngle < 0)
+		{
+			TargetTurnAsset = Stance == EALSStance::Standing
+				                  ? TurnInPlaceSettings.N_TurnIP_L90
+				                  : TurnInPlaceSettings.CLF_TurnIP_L90;
+		}
+		else
+		{
+			TargetTurnAsset = Stance == EALSStance::Standing
+				                  ? TurnInPlaceSettings.N_TurnIP_R90
+				                  : TurnInPlaceSettings.CLF_TurnIP_R90;
+		}
+	}
+	else
+	{
+		if (TurnAngle < 0)
+		{
+			TargetTurnAsset = Stance == EALSStance::Standing
+				                  ? TurnInPlaceSettings.N_TurnIP_L180
+				                  : TurnInPlaceSettings.CLF_TurnIP_L180;
+		}
+		else
+		{
+			TargetTurnAsset = Stance == EALSStance::Standing
+				                  ? TurnInPlaceSettings.N_TurnIP_R180
+				                  : TurnInPlaceSettings.CLF_TurnIP_R180;
+		}
+	}
+
+	if (bOverrideCurrent || !IsPlayingSlotAnimation(TargetTurnAsset.Anim, TargetTurnAsset.SlotName))
+	{
+		// 播放转身的脚部蒙太奇
+		PlaySlotAnimationAsDynamicMontage(
+			TargetTurnAsset.Anim,
+			TargetTurnAsset.SlotName,
+			0.2f,
+			0.2f,
+			PlayRateScale * TargetTurnAsset.PlayRate,
+			1,
+			0.f,
+			StartTime
+		);
+		RotationScale = TargetTurnAsset.PlayRate * PlayRateScale;
+		if (TargetTurnAsset.bScaleTurnAngle)
+		{
+			RotationScale *= (TurnAngle / TargetTurnAsset.AnimateAngle);
+		}
+	}
 }
 
 bool UALSAnimInstance::CanDynamicTransition()
@@ -272,6 +330,64 @@ bool UALSAnimInstance::CanDynamicTransition()
 
 void UALSAnimInstance::DynamicTransitionCheck()
 {
+	USkeletalMeshComponent* SkeletalMeshComponent = GetOwningComponent();
+	if (!SkeletalMeshComponent)
+	{
+		return;
+	}
+
+	float SocketDistance_L = UKismetAnimationLibrary::K2_DistanceBetweenTwoSocketsAndMapRange(
+		SkeletalMeshComponent,
+		TEXT("ik_foot_l"),
+		ERelativeTransformSpace::RTS_Component,
+		TEXT("VB foot_target_l"),
+		ERelativeTransformSpace::RTS_Component,
+		false,
+		0.f,
+		0.f,
+		0.f,
+		0.f
+	);
+	if (SocketDistance_L > 8.f)
+	{
+		PlayDynamicTransition(0.1, DynamicTransitionParams_L);
+	}
+	float SocketDistance_R = UKismetAnimationLibrary::K2_DistanceBetweenTwoSocketsAndMapRange(
+		SkeletalMeshComponent,
+		TEXT("ik_foot_r"),
+		ERelativeTransformSpace::RTS_Component,
+		TEXT("VB foot_target_r"),
+		ERelativeTransformSpace::RTS_Component,
+		false,
+		0.f,
+		0.f,
+		0.f,
+		0.f
+	);
+	if (SocketDistance_R > 8.f)
+	{
+		PlayDynamicTransition(0.1, DynamicTransitionParams_R);
+	}
+}
+
+void UALSAnimInstance::PlayDynamicTransition(float ReTriggerDelay, FALSDynamicMontageParams Params)
+{
+	static float LastTime = 0.f;
+	float NowTime = UGameplayStatics::GetTimeSeconds(this);
+	if (NowTime > LastTime + ReTriggerDelay)
+	{
+		PlaySlotAnimationAsDynamicMontage(
+			Params.Anim,
+			TEXT("Grounded Slot"),
+			Params.BlendInTime,
+			Params.BlendOutTime,
+			Params.PlayRate,
+			1.f,
+			0.f,
+			Params.StartTime
+		);
+		LastTime = NowTime;
+	}
 }
 
 FALSVelocityBlend UALSAnimInstance::CalcVelocityBlend()
@@ -388,4 +504,93 @@ EALSMovementDirection UALSAnimInstance::CalcMovementDirection()
 	float YawOffset = UKismetMathLibrary::Conv_VectorToRotator(Velocity).Yaw - AimingRotation.Yaw;
 	return UALSBlueprintFunctionLibrary::CalcQuadrant(
 		MovementDirection, 70.f, -70.f, 110.f, -110.f, 5.f, YawOffset);
+}
+
+void UALSAnimInstance::UpdateInAirValues()
+{
+	FallSpeed = Velocity.Z;
+	LandPrediction = CalcLandPrediction();
+	LeanAmount = UALSBlueprintFunctionLibrary::InterpLeanAmount(LeanAmount, CalcInAirLeanAmount(), InAirLeanInterpSpeed,
+	                                                            DeltaTime);
+}
+
+float UALSAnimInstance::CalcLandPrediction()
+{
+	if (FallSpeed >= -200.f)
+	{
+		return 0.f;
+	}
+
+	UCapsuleComponent* CapsuleComponent = Character->GetCapsuleComponent();
+	UCharacterMovementComponent* MoveComp = Character->GetCharacterMovement();
+	if (!CapsuleComponent || !MoveComp)
+	{
+		return 0.f;
+	}
+
+	FVector TraceStart = CapsuleComponent->GetComponentLocation();
+	FVector Direction = UKismetMathLibrary::Vector_NormalUnsafe(FVector(Velocity.X, Velocity.Y,
+	                                                                    UKismetMathLibrary::Clamp(
+		                                                                    Velocity.Z, -4000.f, -200.f)));
+
+	FVector TraceEnd = TraceStart + Direction * UKismetMathLibrary::MapRangeClamped(
+		Velocity.Z, 0.f, -4000.f, 50.f, 2000.f);
+	TArray<AActor*> IgnoreActors;
+	FHitResult Hit;
+	UKismetSystemLibrary::CapsuleTraceSingleByProfile(
+		this,
+		TraceStart,
+		TraceEnd,
+		CapsuleComponent->GetScaledCapsuleRadius(),
+		CapsuleComponent->GetScaledCapsuleHalfHeight(),
+		TEXT("ALS_Character"),
+		false,
+		IgnoreActors,
+		GetTraceDebugType(EDrawDebugTrace::ForOneFrame),
+		Hit,
+		true,
+		FColor::Red,
+		FColor::Green
+	);
+	if (MoveComp->IsWalkable(Hit) && Hit.bBlockingHit)
+	{
+		float CurveValue = UALSBlueprintFunctionLibrary::GetCurveFloatValue(LandPredictionCurve, Hit.Time);
+		return UKismetMathLibrary::Lerp(CurveValue, 0.f, GetCurveValue("Mask_LandPrediction"));
+	}
+	return 0.f;;
+}
+
+FALSLeanAmount UALSAnimInstance::CalcInAirLeanAmount()
+{
+	return FALSLeanAmount();
+}
+
+void UALSAnimInstance::UpdateRagdollValues()
+{
+	USkeletalMeshComponent* SkeletalMeshComponent = GetOwningComponent();
+	if (!SkeletalMeshComponent)
+	{
+		return;
+	}
+
+	FVector RootVelocity = SkeletalMeshComponent->GetPhysicsLinearVelocity(TEXT("root"));
+	FlailRate = UKismetMathLibrary::MapRangeClamped(RootVelocity.Length(), 0.f, 1000.f, 0.f, 1.f);
+}
+
+EDrawDebugTrace::Type UALSAnimInstance::GetTraceDebugType(EDrawDebugTrace::Type TraceType) const
+{
+	if (!Character)
+	{
+		return EDrawDebugTrace::Type::None;
+	}
+
+	if (IALSControllerInterface* Interface = Character->GetController<IALSControllerInterface>())
+	{
+		if (Interface->GetShowTraces())
+		{
+			return TraceType;
+		}
+	}
+
+	return EDrawDebugTrace::Type::None;
 }

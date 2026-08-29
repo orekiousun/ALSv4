@@ -17,3 +17,8 @@ void AALSPlayerController::GetDebugInfo(TObjectPtr<ACharacter>& OutDebugFocusCha
 	bOutShowSlomo = bShowSlomo;
 	bOutShowCharacterInfo = bShowCharacterInfo;
 }
+
+bool AALSPlayerController::GetShowTraces()
+{
+	return bShowTraces;
+}

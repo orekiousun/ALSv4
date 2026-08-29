@@ -19,7 +19,7 @@ public:
 	virtual void GetDebugInfo(TObjectPtr<ACharacter>& OutDebugFocusCharacter, bool& bOutDebugView, bool& bOutShouHUD,
 	                          bool& bOutShouTraces, bool& bOutShouDebugShapes, bool& bOutShouLayerColors,
 	                          bool& bOutShowSlomo, bool& bOutShowCharacterInfo) override;
-
+	virtual bool GetShowTraces() override;
 protected:
 	TObjectPtr<ACharacter> DebugFocusCharacter;
 	TArray<TObjectPtr<ACharacter>> AvailableDebugCharacters;

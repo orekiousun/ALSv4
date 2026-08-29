@@ -377,3 +377,21 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FALSTurnInPlaceAsset CLF_TurnIP_R180;
 };
+
+USTRUCT(BlueprintType)
+struct FALSDynamicMontageParams
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UAnimSequence* Anim;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float BlendInTime;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float BlendOutTime;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float PlayRate;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float StartTime;
+};

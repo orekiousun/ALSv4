@@ -23,4 +23,5 @@ public:
 	virtual void GetDebugInfo(OUT TObjectPtr<ACharacter>& OutDebugFocusCharacter, OUT bool& bOutDebugView,
 	                          OUT bool& bOutShouHUD, OUT bool& bOutShouTraces, OUT bool& bOutShouDebugShapes,
 	                          OUT bool& bOutShouLayerColors, OUT bool& bOutShowSlomo, OUT bool& bOutShowCharacterInfo);
+	virtual bool GetShowTraces();
 };

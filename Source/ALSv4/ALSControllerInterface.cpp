@@ -8,3 +8,8 @@ void IALSControllerInterface::GetDebugInfo(TObjectPtr<ACharacter>& OutDebugFocus
 	bool& bOutShowCharacterInfo)
 {
 }
+
+bool IALSControllerInterface::GetShowTraces()
+{
+	return false;
+}

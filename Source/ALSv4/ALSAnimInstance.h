@@ -23,8 +23,6 @@ protected:
 	void UpdateFootIK();
 	void UpdateMovementValues();
 	void UpdateRotationValues();
-	void UpdateInAirValues();
-	void UpdateRagdollValues();
 	// RotateInPlace
 	bool CanRotateInPlace();
 	void RotateInPlaceCheck();
@@ -35,6 +33,7 @@ protected:
 	// DynamicTransition
 	bool CanDynamicTransition();
 	void DynamicTransitionCheck();
+	void PlayDynamicTransition(float ReTriggerDelay, FALSDynamicMontageParams Params);
 	// Movement
 	bool ShouldMoveCheck();
 	FALSVelocityBlend CalcVelocityBlend();
@@ -45,6 +44,14 @@ protected:
 	float CalcStandingPlayRate();
 	float CalcCrouchingPlayRate();
 	EALSMovementDirection CalcMovementDirection();
+	// InAir
+	void UpdateInAirValues();
+	float CalcLandPrediction();
+	FALSLeanAmount CalcInAirLeanAmount();
+	// Ragdoll
+	void UpdateRagdollValues();
+	
+	EDrawDebugTrace::Type GetTraceDebugType(EDrawDebugTrace::Type TraceType) const;
 
 	// Config
 	// InterpSpeed
@@ -56,6 +63,8 @@ protected:
 	float VelocityBlendInterpSpeed = 12.f;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|InterpSpeed")
 	float GroundedLeanInterpSpeed = 4.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|InterpSpeed")
+	float InAirLeanInterpSpeed;
 	// Curve
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
 	UCurveFloat* DiagonalScaleAmountCurve;
@@ -69,6 +78,9 @@ protected:
 	UCurveVector* YawOffset_FB;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
 	UCurveVector* YawOffset_LR;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
+	UCurveFloat* LandPredictionCurve;
+	
 	// AnimatedSpeed
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
 	FALSAnimatedSpeed AnimatedSpeed;
@@ -78,6 +90,11 @@ protected:
 	// TurnInPlace
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
 	FALSTurnInPlaceSettings TurnInPlaceSettings;
+	// DynamicTransition
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
+	FALSDynamicMontageParams DynamicTransitionParams_L;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
+	FALSDynamicMontageParams DynamicTransitionParams_R;
 
 	TObjectPtr<AALSBaseCharacter> Character;
 	float DeltaTime;
@@ -119,6 +136,12 @@ protected:
 	bool Rotate_R;
 	float RotateRate;
 	float ElapsedDelayTime;
+	float RotationScale;
+	// InAirValues
+	float FallSpeed;
+	float LandPrediction;
+	// RagdollValues
+	float FlailRate;
 	// AimingValues
 	FRotator SmoothedAimingRotation;
 	FRotator SpineRotation;

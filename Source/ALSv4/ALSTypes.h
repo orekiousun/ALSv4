@@ -395,3 +395,17 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float StartTime;
 };
+
+USTRUCT(BlueprintType)
+struct FALSFootIKSettings
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float FootHeight = 13.5f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float IK_TraceDistanceAboveFoot = 50.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float IK_TraceDistanceBelowFoot = 45.f;
+};

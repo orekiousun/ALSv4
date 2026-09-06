@@ -50,9 +50,13 @@ protected:
 	FALSLeanAmount CalcInAirLeanAmount();
 	// FootIK
 	void UpdateFootIK();
-	void SetFootLocking(FName EnableFootIKCurve, FName FootLockCurve, FName IKFootBone, float& CurrentFootLockAlpha,
-	                    FVector& CurrentFootLockLocation, FRotator& CurrentFootLockRotation);
+	void SetFootLocking(FName EnableFootIKCurve, FName FootLockCurve, FName IKFootBone, float& CurFootLockAlpha,
+	                    FVector& CurFootLockLocation, FRotator& CurFootLockRotation);
 	void SetFootLockOffset(FVector& LocalLocation, FRotator& LocalRotation);
+	void SetFootOffset(FName EnableFootIKCurve, FName IKFootBone, FName RootBone, FVector& CurLocationTarget,
+	                   FVector& CurLocationOffset, FRotator& CurRotationOffset);
+	void SetPelvisIKOffset(FVector FootOffsetLTarget, FVector FootOffsetRTarget);
+	void ResetIKOffset();
 	// Ragdoll
 	void UpdateRagdollValues();
 
@@ -85,6 +89,8 @@ protected:
 	UCurveVector* YawOffset_LR;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
 	UCurveFloat* LandPredictionCurve;
+	// FootIK
+	FALSFootIKSettings FootIKSettings;
 
 	// AnimatedSpeed
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")

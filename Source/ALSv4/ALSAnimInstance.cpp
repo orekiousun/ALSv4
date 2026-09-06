@@ -171,63 +171,6 @@ void UALSAnimInstance::UpdateLayerValue()
 	Arm_R_MS = 1 - UKismetMathLibrary::FFloor(Arm_R_LS);
 }
 
-void UALSAnimInstance::UpdateFootIK()
-{
-}
-
-void UALSAnimInstance::SetFootLocking(FName EnableFootIKCurve, FName FootLockCurve, FName IKFootBone,
-                                      float& CurrentFootLockAlpha, FVector& CurrentFootLockLocation,
-                                      FRotator& CurrentFootLockRotation)
-{
-	if (GetCurveValue(EnableFootIKCurve) <= 0.f)
-	{
-		return;
-	}
-
-	float FootLockCurveValue = GetCurveValue(FootLockCurve);
-	if (FootLockCurveValue >= 0.99f || FootLockCurveValue < CurrentFootLockAlpha)
-	{
-		CurrentFootLockAlpha = FootLockCurveValue;
-	}
-
-	if (CurrentFootLockAlpha >= 0.99f)
-	{
-		if (USkeletalMeshComponent* OwningComp = GetOwningComponent())
-		{
-			FTransform SocketTransform = OwningComp->GetSocketTransform(IKFootBone, RTS_Component);
-			CurrentFootLockLocation = SocketTransform.GetLocation();
-			CurrentFootLockRotation = SocketTransform.Rotator();
-		}
-	}
-
-	if (CurrentFootLockAlpha > 0.f)
-	{
-		SetFootLockOffset(CurrentFootLockLocation, CurrentFootLockRotation);
-	}
-}
-
-void UALSAnimInstance::SetFootLockOffset(FVector& LocalLocation, FRotator& LocalRotation)
-{
-	UCharacterMovementComponent* MoveComp = Character->GetCharacterMovement();
-	if (!MoveComp)
-	{
-		return;
-	}
-
-	FVector LocationDifference;
-	FRotator RotationDifference;
-	if (MoveComp->IsMovingOnGround())
-	{
-		RotationDifference = Character->GetActorRotation() - MoveComp->GetLastUpdateRotation();
-	}
-
-	if (USkeletalMeshComponent* OwingComp = GetOwningComponent())
-	{
-		
-		Velocity * UGameplayStatics::GetWorldDeltaSeconds(this);
-	}
-}
-
 void UALSAnimInstance::UpdateRotationValues()
 {
 	MovementDirection = CalcMovementDirection();
@@ -616,6 +559,175 @@ float UALSAnimInstance::CalcLandPrediction()
 FALSLeanAmount UALSAnimInstance::CalcInAirLeanAmount()
 {
 	return FALSLeanAmount();
+}
+
+void UALSAnimInstance::UpdateFootIK()
+{
+	SetFootLocking(TEXT("Enable_FootIK_L"), TEXT("FootLock_L"), TEXT("ik_foot_l"), FootLock_L_Alpha,
+	               FootLock_L_Location, FootLock_L_Rotation);
+	SetFootLocking(TEXT("Enable_FootIK_R"), TEXT("FootLock_R"), TEXT("ik_foot_r"), FootLock_R_Alpha,
+	               FootLock_R_Location, FootLock_R_Rotation);
+
+	switch (MovementState)
+	{
+	case EALSMovementState::None:
+	case EALSMovementState::Grounded:
+	case EALSMovementState::Mantling:
+		{
+			FVector FootOffset_R_Target;
+			FVector FootOffset_L_Target;
+			SetFootOffset(TEXT("Enable_FootIK_L"), TEXT("ik_foot_l"), TEXT("root"), FootOffset_L_Target,
+			              FootLock_L_Location, FootOffset_L_Rotation);
+			SetFootOffset(TEXT("Enable_FootIK_R"), TEXT("ik_foot_r"), TEXT("root"), FootOffset_R_Target,
+			              FootLock_R_Location, FootOffset_R_Rotation);
+			SetPelvisIKOffset(FootOffset_L_Target, FootOffset_R_Target);
+		}
+	case EALSMovementState::InAir:
+		{
+			SetPelvisIKOffset(FVector::ZeroVector, FVector::ZeroVector);
+			ResetIKOffset();
+		}
+	}
+}
+
+void UALSAnimInstance::SetFootLocking(FName EnableFootIKCurve, FName FootLockCurve, FName IKFootBone,
+                                      float& CurFootLockAlpha, FVector& CurFootLockLocation,
+                                      FRotator& CurFootLockRotation)
+{
+	if (GetCurveValue(EnableFootIKCurve) <= 0.f)
+	{
+		return;
+	}
+
+	// 只在CurFootLockAlpha在变小或者等于1时才设置CurFootLockAlpha，是的这里只能混出，不能混入，除非lock到了一个新的位置
+	float FootLockCurveValue = GetCurveValue(FootLockCurve);
+	if (FootLockCurveValue >= 0.99f || FootLockCurveValue < CurFootLockAlpha)
+	{
+		CurFootLockAlpha = FootLockCurveValue;
+	}
+
+	if (CurFootLockAlpha >= 0.99f)
+	{
+		if (USkeletalMeshComponent* OwningComp = GetOwningComponent())
+		{
+			FTransform SocketTransform = OwningComp->GetSocketTransform(IKFootBone, RTS_Component);
+			CurFootLockLocation = SocketTransform.GetLocation();
+			CurFootLockRotation = SocketTransform.Rotator();
+		}
+	}
+
+	if (CurFootLockAlpha > 0.f)
+	{
+		SetFootLockOffset(CurFootLockLocation, CurFootLockRotation);
+	}
+}
+
+void UALSAnimInstance::SetFootLockOffset(FVector& LocalLocation, FRotator& LocalRotation)
+{
+	UCharacterMovementComponent* MoveComp = Character->GetCharacterMovement();
+	if (!MoveComp)
+	{
+		return;
+	}
+
+	FVector LocationDifference = FVector::ZeroVector;
+	FRotator RotationDifference = FRotator::ZeroRotator;
+	if (MoveComp->IsMovingOnGround())
+	{
+		// 从上一帧的Rotation和当前Rotation获取旋转差量
+		RotationDifference = Character->GetActorRotation() - MoveComp->GetLastUpdateRotation();
+	}
+
+	if (USkeletalMeshComponent* OwingComp = GetOwningComponent())
+	{
+		// 计算位移差量
+		LocationDifference = OwingComp->GetComponentRotation().UnrotateVector(
+			Velocity * UGameplayStatics::GetWorldDeltaSeconds(this));
+	}
+
+	LocalLocation = UKismetMathLibrary::RotateAngleAxis(LocalLocation - LocationDifference, RotationDifference.Yaw,
+	                                                    FVector::DownVector);
+	LocalRotation = LocalRotation - RotationDifference;
+}
+
+void UALSAnimInstance::SetFootOffset(FName EnableFootIKCurve, FName IKFootBone, FName RootBone,
+                                     FVector& CurLocationTarget, FVector& CurLocationOffset,
+                                     FRotator& CurRotationOffset)
+{
+	if (GetCurveValue(EnableFootIKCurve) <= 0.f)
+	{
+		CurLocationOffset = FVector::ZeroVector;
+		CurRotationOffset = FRotator::ZeroRotator;
+		return;
+	}
+
+	USkeletalMeshComponent* OwningComp = GetOwningComponent();
+	if (!OwningComp)
+	{
+		return;
+	}
+
+	FVector FootLocation = OwningComp->GetSocketLocation(IKFootBone);
+	FVector RootLocation = OwningComp->GetSocketLocation(RootBone);
+	FVector IKFootFloorLocation = FVector(FootLocation.X, FootLocation.Y, RootLocation.Z);
+	FRotator TargetRotationOffset;
+	TArray<AActor*> ActorsToIgnore;
+	FHitResult Hit;
+	// TODO: TraceChannel待定
+	UKismetSystemLibrary::LineTraceSingle(
+		this,
+		IKFootFloorLocation + FVector(0.f, 0.f, FootIKSettings.IK_TraceDistanceAboveFoot),
+		IKFootFloorLocation + FVector(0.f, 0.f, FootIKSettings.IK_TraceDistanceBelowFoot),
+		ETraceTypeQuery::TraceTypeQuery3,
+		false,
+		ActorsToIgnore,
+		GetTraceDebugType(EDrawDebugTrace::Type::ForOneFrame),
+		Hit,
+		true,
+		FColor::Red,
+		FColor::Green,
+		5.f
+	);
+
+	UCharacterMovementComponent* MoveComp = Character->GetCharacterMovement();
+	if (MoveComp && MoveComp->IsWalkable(Hit))
+	{
+		FVector ImpactPoint = Hit.ImpactPoint;
+		FVector ImpactNormal = Hit.ImpactNormal;
+		CurLocationTarget = ImpactPoint + ImpactNormal * FootIKSettings.FootHeight - (IKFootFloorLocation +
+			FVector::UpVector * FootIKSettings.FootHeight);
+		TargetRotationOffset = FRotator(
+			-UKismetMathLibrary::DegAtan2(ImpactNormal.X, ImpactNormal.Z),
+			UKismetMathLibrary::DegAtan2(ImpactNormal.Y, ImpactNormal.Z),
+			0.f
+		);
+	}
+
+	float InterpSpeed = CurLocationOffset.Z > CurLocationTarget.Z ? 30.f : 15.f;
+	CurLocationOffset = UKismetMathLibrary::VInterpTo(CurLocationOffset, CurLocationTarget, DeltaTime, InterpSpeed);
+	CurRotationOffset = UKismetMathLibrary::RInterpTo(CurRotationOffset, TargetRotationOffset, DeltaTime, 30.f);
+}
+
+void UALSAnimInstance::SetPelvisIKOffset(FVector FootOffsetLTarget, FVector FootOffsetRTarget)
+{
+	PelvisAlpha = GetCurveValue(TEXT("Enable_FootIK_L")) + GetCurveValue(TEXT("Enable_FootIK_R")) / 2;
+	if (PelvisAlpha <= 0.f)
+	{
+		PelvisOffset = FVector::ZeroVector;
+	}
+
+	FVector PelvisTarget = FootOffsetLTarget.Z < FootOffsetRTarget.Z ? FootOffsetLTarget : FootOffsetRTarget;
+	float InterpSpeed = PelvisTarget.Z > PelvisOffset.Z ? 10.f : 15.f;
+	PelvisOffset = UKismetMathLibrary::VInterpTo(PelvisOffset, PelvisTarget, DeltaTime, InterpSpeed);
+}
+
+void UALSAnimInstance::ResetIKOffset()
+{
+	FootOffset_L_Location = UKismetMathLibrary::VInterpTo(FootLock_L_Location, FVector::ZeroVector, DeltaTime, 15.f);
+	FootOffset_R_Location = UKismetMathLibrary::VInterpTo(FootLock_R_Location, FVector::ZeroVector, DeltaTime, 15.f);
+	FootOffset_L_Rotation = UKismetMathLibrary::RInterpTo(FootLock_L_Rotation, FRotator::ZeroRotator, DeltaTime, 15.f);
+	FootOffset_R_Rotation =
+		UKismetMathLibrary::RInterpTo(FootOffset_R_Rotation, FRotator::ZeroRotator, DeltaTime, 15.f);
 }
 
 void UALSAnimInstance::UpdateRagdollValues()

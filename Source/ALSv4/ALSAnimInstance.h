@@ -20,8 +20,7 @@ protected:
 	void UpdateCharacterInfo();
 	void UpdateAimingValues();
 	void UpdateLayerValue();
-	void UpdateFootIK();
-	void UpdateMovementValues();
+	// Rotation
 	void UpdateRotationValues();
 	// RotateInPlace
 	bool CanRotateInPlace();
@@ -35,6 +34,7 @@ protected:
 	void DynamicTransitionCheck();
 	void PlayDynamicTransition(float ReTriggerDelay, FALSDynamicMontageParams Params);
 	// Movement
+	void UpdateMovementValues();
 	bool ShouldMoveCheck();
 	FALSVelocityBlend CalcVelocityBlend();
 	float CalcDiagonalScaleAmount();
@@ -48,9 +48,14 @@ protected:
 	void UpdateInAirValues();
 	float CalcLandPrediction();
 	FALSLeanAmount CalcInAirLeanAmount();
+	// FootIK
+	void UpdateFootIK();
+	void SetFootLocking(FName EnableFootIKCurve, FName FootLockCurve, FName IKFootBone, float& CurrentFootLockAlpha,
+	                    FVector& CurrentFootLockLocation, FRotator& CurrentFootLockRotation);
+	void SetFootLockOffset(FVector& LocalLocation, FRotator& LocalRotation);
 	// Ragdoll
 	void UpdateRagdollValues();
-	
+
 	EDrawDebugTrace::Type GetTraceDebugType(EDrawDebugTrace::Type TraceType) const;
 
 	// Config
@@ -80,7 +85,7 @@ protected:
 	UCurveVector* YawOffset_LR;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
 	UCurveFloat* LandPredictionCurve;
-	
+
 	// AnimatedSpeed
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
 	FALSAnimatedSpeed AnimatedSpeed;
@@ -152,6 +157,19 @@ protected:
 	float ForwardYawTime;
 	float LeftYawTime;
 	float RightYawTime;
+	//Foot IK
+	float FootLock_L_Alpha;
+	float FootLock_R_Alpha;
+	FVector FootLock_L_Location;
+	FVector FootLock_R_Location;
+	FRotator FootLock_L_Rotation;
+	FRotator FootLock_R_Rotation;
+	FVector FootOffset_L_Location;
+	FVector FootOffset_R_Location;
+	FRotator FootOffset_L_Rotation;
+	FRotator FootOffset_R_Rotation;
+	FVector PelvisOffset;
+	float PelvisAlpha;
 	// LayerValues
 	int OverlayOverrideState;
 	float Enable_AimOffset;

@@ -175,22 +175,57 @@ void UALSAnimInstance::UpdateFootIK()
 {
 }
 
-void UALSAnimInstance::UpdateMovementValues()
+void UALSAnimInstance::SetFootLocking(FName EnableFootIKCurve, FName FootLockCurve, FName IKFootBone,
+                                      float& CurrentFootLockAlpha, FVector& CurrentFootLockLocation,
+                                      FRotator& CurrentFootLockRotation)
 {
-	VelocityBlend = UALSBlueprintFunctionLibrary::InterpolateVelocityBlend(
-		VelocityBlend, CalcVelocityBlend(), VelocityBlendInterpSpeed, DeltaTime);
-	DiagonalScaleAmount = CalcDiagonalScaleAmount();
-	RelativeAccelerationAmount = CalcRelativeAccelerationAmount();
-	// 计算倾斜
-	FALSLeanAmount TargetLeanAmount = FALSLeanAmount(RelativeAccelerationAmount.Y, RelativeAccelerationAmount.X);
-	LeanAmount = UALSBlueprintFunctionLibrary::InterpLeanAmount(LeanAmount, TargetLeanAmount, GroundedLeanInterpSpeed,
-	                                                            DeltaTime);
+	if (GetCurveValue(EnableFootIKCurve) <= 0.f)
+	{
+		return;
+	}
 
-	// 计算Blend和PlayRate
-	WalkRunBlend = CalcWalkRunBlend();
-	StrideBlend = CalcStrideBlend();
-	StandingPlayRate = CalcStandingPlayRate();
-	CrouchingPlayRate = CalcCrouchingPlayRate();
+	float FootLockCurveValue = GetCurveValue(FootLockCurve);
+	if (FootLockCurveValue >= 0.99f || FootLockCurveValue < CurrentFootLockAlpha)
+	{
+		CurrentFootLockAlpha = FootLockCurveValue;
+	}
+
+	if (CurrentFootLockAlpha >= 0.99f)
+	{
+		if (USkeletalMeshComponent* OwningComp = GetOwningComponent())
+		{
+			FTransform SocketTransform = OwningComp->GetSocketTransform(IKFootBone, RTS_Component);
+			CurrentFootLockLocation = SocketTransform.GetLocation();
+			CurrentFootLockRotation = SocketTransform.Rotator();
+		}
+	}
+
+	if (CurrentFootLockAlpha > 0.f)
+	{
+		SetFootLockOffset(CurrentFootLockLocation, CurrentFootLockRotation);
+	}
+}
+
+void UALSAnimInstance::SetFootLockOffset(FVector& LocalLocation, FRotator& LocalRotation)
+{
+	UCharacterMovementComponent* MoveComp = Character->GetCharacterMovement();
+	if (!MoveComp)
+	{
+		return;
+	}
+
+	FVector LocationDifference;
+	FRotator RotationDifference;
+	if (MoveComp->IsMovingOnGround())
+	{
+		RotationDifference = Character->GetActorRotation() - MoveComp->GetLastUpdateRotation();
+	}
+
+	if (USkeletalMeshComponent* OwingComp = GetOwningComponent())
+	{
+		
+		Velocity * UGameplayStatics::GetWorldDeltaSeconds(this);
+	}
 }
 
 void UALSAnimInstance::UpdateRotationValues()
@@ -388,6 +423,24 @@ void UALSAnimInstance::PlayDynamicTransition(float ReTriggerDelay, FALSDynamicMo
 		);
 		LastTime = NowTime;
 	}
+}
+
+void UALSAnimInstance::UpdateMovementValues()
+{
+	VelocityBlend = UALSBlueprintFunctionLibrary::InterpolateVelocityBlend(
+		VelocityBlend, CalcVelocityBlend(), VelocityBlendInterpSpeed, DeltaTime);
+	DiagonalScaleAmount = CalcDiagonalScaleAmount();
+	RelativeAccelerationAmount = CalcRelativeAccelerationAmount();
+	// 计算倾斜
+	FALSLeanAmount TargetLeanAmount = FALSLeanAmount(RelativeAccelerationAmount.Y, RelativeAccelerationAmount.X);
+	LeanAmount = UALSBlueprintFunctionLibrary::InterpLeanAmount(LeanAmount, TargetLeanAmount, GroundedLeanInterpSpeed,
+	                                                            DeltaTime);
+
+	// 计算Blend和PlayRate
+	WalkRunBlend = CalcWalkRunBlend();
+	StrideBlend = CalcStrideBlend();
+	StandingPlayRate = CalcStandingPlayRate();
+	CrouchingPlayRate = CalcCrouchingPlayRate();
 }
 
 FALSVelocityBlend UALSAnimInstance::CalcVelocityBlend()

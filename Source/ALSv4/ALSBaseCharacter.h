@@ -11,6 +11,8 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "ALSBaseCharacter.generated.h"
 
+class UALSAnimInstance;
+
 UCLASS()
 class ALSV4_API AALSBaseCharacter : public ACharacter, public IALSCharacterInterface
 {
@@ -18,8 +20,6 @@ class ALSV4_API AALSBaseCharacter : public ACharacter, public IALSCharacterInter
 
 public:
 	AALSBaseCharacter();
-
-protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
@@ -38,7 +38,6 @@ public:
 	virtual void SetRotationMode(EALSRotationMode NewRotationMode) override;
 	virtual void SetGait(EALSGait NewGait) override;
 	virtual void SetViewMode(EALSViewMode NewViewMode) override;
-	virtual void SetOverlayState(EALSOverlayState NewOverlayState) override;
 
 	virtual void GetEssentialValues(FVector& OutVelocity, FVector& OutAcceleration, FVector& OutMovementInput,
 	                                bool& bOutIsMoving, bool& bOutHasMovementInput, float& OutSpeed,
@@ -47,7 +46,7 @@ public:
 	virtual void GetCurrentStates(EMovementMode& OutPawnMovementMode, EALSMovementState& OutMovementState,
 	                              EALSMovementState& OutPrevMovementState, EALSMovementAction& OutMovementAction,
 	                              EALSRotationMode& OutRotationMode, EALSGait& OutGait, EALSStance& OutStance,
-	                              EALSViewMode& OutViewMode, EALSOverlayState& OutOverlayState) override;
+	                              EALSViewMode& OutViewMode) override;
 
 protected:
 	void OnBeginPlay();
@@ -75,13 +74,10 @@ protected:
 	void OnGaitChanged(EALSGait NewGait);
 	void OnStanceChanged(EALSStance NewStance);
 	void OnViewModeChanged(EALSViewMode NewViewMode);
-	void OnOverlayStateChanged(EALSOverlayState NewOverlayState);
 
 	// 输入
-	void OnMoveForwardBackwardTriggered(const FInputActionValue& Value);
-	void OnMoveLeftRightTriggered(const FInputActionValue& Value);
-	void OnLookUpDownTriggered(const FInputActionValue& Value);
-	void OnLookLeftRightTriggered(const FInputActionValue& Value);
+	void OnMoveTriggered(const FInputActionValue& Value);
+	void OnLookTriggered(const FInputActionValue& Value);
 	void OnJumpTriggered(const FInputActionValue& Value);
 	void OnJumpCompleted(const FInputActionValue& Value);
 	// 切换站立和下蹲
@@ -108,15 +104,6 @@ protected:
 	void RagdollStart();
 	void RagdollEnd();
 
-	// 攀爬
-	bool MantleCheck(const FALSMantleTraceSettings& MantleTraceSettings, EDrawDebugTrace::Type DebugType);
-	void MantleStart(float MantleHeight, FALSComponentAndTransform MantleLedgeWS, EALSMantleType MantleType);
-	void MantleEnd();
-	void MantleUpdate();
-	bool CapsuleHasRoomCheck(UCapsuleComponent* Capsule, FVector TargetLocation, float HeightOffset, float RadiusOffset,
-	                         EDrawDebugTrace::Type DebugType);
-	FALSMantleAsset GetMantleAsset(EALSMantleType MantleType);
-
 	// Utils
 	float GetAnimCurveValue(FName CurveName) const;
 	FVector GetPlayerMovementInput();
@@ -127,27 +114,18 @@ protected:
 	float GetMappedSpeed() const;
 	bool CanUpdateMovingRotation() const;
 	float CalcGroundedRotationRate() const;
-	// 获取胶囊体脚部位置
-	FVector GetCapsuleBaseLocation(float ZOffset);
 	// 输入胶囊体脚部位置，计算胶囊体中心位置
-	FVector GetCapsuleLocationFormBase(FVector BaseLocation, float ZOffset);
 	EDrawDebugTrace::Type GetTraceDebugType(EDrawDebugTrace::Type TraceType) const;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Config)
 	FALSMovementStateSettings MovementData;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Config)
-	FALSMantleTraceSettings GroundTraceSettings;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Config)
-	FALSMantleTraceSettings FallingTraceSettings;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Input)
 	FALSInputActions InputActions;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Input)
 	UInputMappingContext* DefaultMappingContext;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Input)
-	FALSMantleSettings MantleSettings;
 
 	UPROPERTY(Transient)
-	TObjectPtr<UAnimInstance> MainAnimInstance;
+	TObjectPtr<UALSAnimInstance> MainAnimInstance;
 
 	EALSMovementState MovementState;
 	EALSMovementState PrevMovementState;
@@ -166,8 +144,6 @@ protected:
 	EALSStance DesiredStance = EALSStance::Standing;
 	EALSViewMode ViewMode = EALSViewMode::ThirdPerson;
 	EALSViewMode PrevViewMode;
-	EALSOverlayState OverlayState = EALSOverlayState::Default;
-	EALSOverlayState PrevOverlayState;
 
 	FVector Acceleration;
 	FVector PrevVelocity;
@@ -191,11 +167,4 @@ protected:
 	bool bBreakFall;
 	FTimerHandle BreakFallTimerHandle;
 	FTimerHandle BrakingFrictionFactorTimerHandle;
-
-	// Mantle
-	FALSMantleParams MantleParams;
-	FALSComponentAndTransform MantleLedgeLS;
-	FTransform MantleTarget;
-	FTransform MantleActualStartOffset;
-	FTransform MantleAnimatedStartOffset;
 };

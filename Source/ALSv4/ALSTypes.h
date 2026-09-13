@@ -90,12 +90,19 @@ enum class EALSMantleType: uint8
 };
 
 UENUM()
-enum class EALSMovementDirection
+enum class EALSMovementDirection : uint8
 {
 	Forward = 0,
 	Right = 1,
 	Left = 2,
 	Backward = 3,
+};
+
+UENUM()
+enum class EALSGroundedEntryState : uint8
+{
+	None,
+	Roll,
 };
 
 USTRUCT(BlueprintType)
@@ -161,13 +168,9 @@ struct FALSInputActions
 
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UInputAction* MoveForwardBackwardAction;
+	UInputAction* MoveAction;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UInputAction* MoveLeftRightAction;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UInputAction* LookUpDownAction;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UInputAction* LookLeftRightAction;
+	UInputAction* LookAction;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UInputAction* JumpAction;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)

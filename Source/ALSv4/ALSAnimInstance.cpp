@@ -3,6 +3,7 @@
 
 #include "ALSAnimInstance.h"
 
+#include "ALSBaseCharacter.h"
 #include "ALSBlueprintFunctionLibrary.h"
 #include "ALSControllerInterface.h"
 #include "KismetAnimationLibrary.h"
@@ -91,6 +92,23 @@ void UALSAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	}
 }
 
+void UALSAnimInstance::OnJumped()
+{
+	IIALSAnimInterface::OnJumped();
+	bJumped = true;
+	JumpPlayRate = UKismetMathLibrary::MapRangeClamped(Speed, 0.f, 600.f, 1.2f, 1.5f);
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().SetTimer(JumpTimerHandle, [this] { bJumped = false; }, 0.1f, false);
+	}
+}
+
+void UALSAnimInstance::SetGroundedEntryState(EALSGroundedEntryState InGroundedEntryState)
+{
+	IIALSAnimInterface::SetGroundedEntryState(InGroundedEntryState);
+	GroundedEntryState = InGroundedEntryState;
+}
+
 void UALSAnimInstance::UpdateCharacterInfo()
 {
 	IALSCharacterInterface* CharacterInterface = Cast<IALSCharacterInterface>(Character);
@@ -103,7 +121,7 @@ void UALSAnimInstance::UpdateCharacterInfo()
 	                                       MovementInputAmount, AimingRotation, AimYawRate);
 	EMovementMode PawnMovementMode;
 	CharacterInterface->GetCurrentStates(PawnMovementMode, MovementState, PrevMovementState, MovementAction,
-	                                     RotationMode, Gait, Stance, ViewMode, OverlayState);
+	                                     RotationMode, Gait, Stance, ViewMode);
 }
 
 void UALSAnimInstance::UpdateAimingValues()
@@ -155,20 +173,10 @@ void UALSAnimInstance::UpdateLayerValue()
 	Enable_AimOffset = UKismetMathLibrary::Lerp(0, 1, GetCurveValue(TEXT("Mask_AimOffset")));
 	BasePose_N = GetCurveValue(TEXT("BasePose_N"));
 	BasePose_CLF = GetCurveValue(TEXT("BasePose_CLF"));
-	Spine_Add = GetCurveValue(TEXT("Layering_Spine_Add"));
-	Head_Add = GetCurveValue(TEXT("Layering_Head_Add"));
-	Arm_L_Add = GetCurveValue(TEXT("Layering_Arm_L_Add"));
-	Arm_R_Add = GetCurveValue(TEXT("Layering_Arm_R_Add"));
-	Hand_L = GetCurveValue(TEXT("Layering_Hand_L"));
-	Hand_R = GetCurveValue(TEXT("Layering_Hand_R"));
 	Enable_HandIK_L = UKismetMathLibrary::Lerp(0.f, GetCurveValue(TEXT("Enable_HandIK_L")),
 	                                           GetCurveValue(TEXT("Layering_Arm_L")));
 	Enable_HandIK_R = UKismetMathLibrary::Lerp(0.f, GetCurveValue(TEXT("Enable_HandIK_R")),
 	                                           GetCurveValue(TEXT("Layering_Arm_R")));
-	Arm_L_LS = GetCurveValue(TEXT("Layering_Arm_L_LS"));
-	Arm_R_LS = GetCurveValue(TEXT("Layering_Arm_R_LS"));
-	Arm_L_MS = 1 - UKismetMathLibrary::FFloor(Arm_L_LS);
-	Arm_R_MS = 1 - UKismetMathLibrary::FFloor(Arm_R_LS);
 }
 
 void UALSAnimInstance::UpdateRotationValues()
@@ -558,7 +566,12 @@ float UALSAnimInstance::CalcLandPrediction()
 
 FALSLeanAmount UALSAnimInstance::CalcInAirLeanAmount()
 {
-	return FALSLeanAmount();
+	FALSLeanAmount InAirLeanAmount;
+	FVector RelativeVelocity = Character->GetActorRotation().UnrotateVector(Velocity);
+	float CurveValue = UALSBlueprintFunctionLibrary::GetCurveFloatValue(LeanInAirCurve, FallSpeed);
+	InAirLeanAmount.LR = RelativeVelocity.X / 350.f * CurveValue;
+	InAirLeanAmount.FB = RelativeVelocity.Y / 350.f * CurveValue;
+	return InAirLeanAmount;
 }
 
 void UALSAnimInstance::UpdateFootIK()

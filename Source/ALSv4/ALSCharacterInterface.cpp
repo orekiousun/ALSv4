@@ -4,14 +4,17 @@
 #include "ALSCharacterInterface.h"
 
 void IALSCharacterInterface::GetCurrentStates(EMovementMode& OutPawnMovementMode, EALSMovementState& OutMovementState,
-	EALSMovementState& OutPrevMovementState, EALSMovementAction& OutMovementAction, EALSRotationMode& OutRotationMode,
-	EALSGait& OutGait, EALSStance& OutStance, EALSViewMode& OutViewMode, EALSOverlayState& OutOverlayState)
+                                              EALSMovementState& OutPrevMovementState,
+                                              EALSMovementAction& OutMovementAction, EALSRotationMode& OutRotationMode,
+                                              EALSGait& OutGait, EALSStance& OutStance, EALSViewMode& OutViewMode)
 {
 }
 
 void IALSCharacterInterface::GetEssentialValues(FVector& OutVelocity, FVector& OutAcceleration,
-	FVector& OutMovementInput, bool& bOutIsMoving, bool& bOutHasMovementInput, float& OutSpeed,
-	float& OutMovementInputAmount, FRotator& OutAimingRotation, float& OutAimYawRate)
+                                                FVector& OutMovementInput, bool& bOutIsMoving,
+                                                bool& bOutHasMovementInput, float& OutSpeed,
+                                                float& OutMovementInputAmount, FRotator& OutAimingRotation,
+                                                float& OutAimYawRate)
 {
 }
 

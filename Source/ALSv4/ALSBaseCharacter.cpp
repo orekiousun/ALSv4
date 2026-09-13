@@ -3,6 +3,7 @@
 
 #include "ALSBaseCharacter.h"
 
+#include "ALSAnimInstance.h"
 #include "ALSPlayerController.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -59,10 +60,6 @@ void AALSBaseCharacter::Tick(float DeltaTime)
 	case EALSMovementState::InAir:
 		{
 			UpdateInAirRotation();
-			if (bHasMovementInput)
-			{
-				MantleCheck(FallingTraceSettings, EDrawDebugTrace::Type::ForOneFrame);
-			}
 		}
 	case EALSMovementState::Ragdoll:
 		RagdollUpdate();
@@ -86,14 +83,10 @@ void AALSBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
-		EnhancedInputComponent->BindAction(InputActions.MoveForwardBackwardAction, ETriggerEvent::Triggered, this,
-		                                   &AALSBaseCharacter::OnMoveForwardBackwardTriggered);
-		EnhancedInputComponent->BindAction(InputActions.MoveLeftRightAction, ETriggerEvent::Triggered, this,
-		                                   &AALSBaseCharacter::OnMoveLeftRightTriggered);
-		EnhancedInputComponent->BindAction(InputActions.LookUpDownAction, ETriggerEvent::Triggered, this,
-		                                   &AALSBaseCharacter::OnLookUpDownTriggered);
-		EnhancedInputComponent->BindAction(InputActions.LookLeftRightAction, ETriggerEvent::Triggered, this,
-		                                   &AALSBaseCharacter::OnLookLeftRightTriggered);
+		EnhancedInputComponent->BindAction(InputActions.MoveAction, ETriggerEvent::Triggered, this,
+		                                   &AALSBaseCharacter::OnMoveTriggered);
+		EnhancedInputComponent->BindAction(InputActions.LookAction, ETriggerEvent::Triggered, this,
+		                                   &AALSBaseCharacter::OnLookTriggered);
 		EnhancedInputComponent->BindAction(InputActions.JumpAction, ETriggerEvent::Triggered, this,
 		                                   &AALSBaseCharacter::OnJumpTriggered);
 		EnhancedInputComponent->BindAction(InputActions.JumpAction, ETriggerEvent::Completed, this,
@@ -157,7 +150,7 @@ void AALSBaseCharacter::OnJumped_Implementation()
 	InAirRotation = Speed > 100.f ? LastVelocityRotation : GetActorRotation();
 	if (MainAnimInstance)
 	{
-		// TODO：调用MainAnimInstance的Jumped
+		MainAnimInstance->OnJumped();
 	}
 }
 
@@ -238,16 +231,6 @@ void AALSBaseCharacter::SetViewMode(EALSViewMode NewViewMode)
 	OnViewModeChanged(NewViewMode);
 }
 
-void AALSBaseCharacter::SetOverlayState(EALSOverlayState NewOverlayState)
-{
-	IALSCharacterInterface::SetOverlayState(NewOverlayState);
-	if (NewOverlayState == OverlayState)
-	{
-		return;
-	}
-	OnOverlayStateChanged(NewOverlayState);
-}
-
 void AALSBaseCharacter::GetEssentialValues(FVector& OutVelocity, FVector& OutAcceleration, FVector& OutMovementInput,
                                            bool& bOutIsMoving, bool& bOutHasMovementInput, float& OutSpeed,
                                            float& OutMovementInputAmount,
@@ -270,12 +253,11 @@ void AALSBaseCharacter::GetEssentialValues(FVector& OutVelocity, FVector& OutAcc
 void AALSBaseCharacter::GetCurrentStates(EMovementMode& OutPawnMovementMode, EALSMovementState& OutMovementState,
                                          EALSMovementState& OutPrevMovementState, EALSMovementAction& OutMovementAction,
                                          EALSRotationMode& OutRotationMode,
-                                         EALSGait& OutGait, EALSStance& OutStance, EALSViewMode& OutViewMode,
-                                         EALSOverlayState& OutOverlayState)
+                                         EALSGait& OutGait, EALSStance& OutStance, EALSViewMode& OutViewMode)
 {
 	IALSCharacterInterface::GetCurrentStates(OutPawnMovementMode, OutMovementState, OutPrevMovementState,
 	                                         OutMovementAction, OutRotationMode, OutGait,
-	                                         OutStance, OutViewMode, OutOverlayState);
+	                                         OutStance, OutViewMode);
 	if (GetCharacterMovement()) OutPawnMovementMode = GetCharacterMovement()->MovementMode;
 	OutMovementState = MovementState;
 	OutPrevMovementState = PrevMovementState;
@@ -284,7 +266,6 @@ void AALSBaseCharacter::GetCurrentStates(EMovementMode& OutPawnMovementMode, EAL
 	OutGait = Gait;
 	OutStance = Stance;
 	OutViewMode = ViewMode;
-	OutOverlayState = OverlayState;
 }
 
 void AALSBaseCharacter::OnBeginPlay()
@@ -293,14 +274,13 @@ void AALSBaseCharacter::OnBeginPlay()
 	if (USkeletalMeshComponent* TempMesh = GetMesh())
 	{
 		TempMesh->AddTickPrerequisiteActor(this);
-		MainAnimInstance = TempMesh->GetAnimInstance();
+		MainAnimInstance = Cast<UALSAnimInstance>(TempMesh->GetAnimInstance());
 	}
 
 	// 初始化状态值，下面的几个值都有默认值
 	OnGaitChanged(DesiredGait);
 	OnRotationModeChanged(DesiredRotationMode);
 	OnViewModeChanged(ViewMode);
-	OnOverlayStateChanged(OverlayState);
 	switch (DesiredStance)
 	{
 	case EALSStance::Standing:
@@ -528,11 +508,6 @@ void AALSBaseCharacter::OnMovementStateChanged(EALSMovementState NewMovementStat
 		case EALSMovementAction::Rolling:
 			RagdollStart();
 		}
-	case EALSMovementState::Ragdoll:
-		if (PrevMovementState == EALSMovementState::Mantling)
-		{
-			// TODO:停止MantleTimeline
-		}
 	}
 }
 
@@ -600,38 +575,22 @@ void AALSBaseCharacter::OnViewModeChanged(EALSViewMode NewViewMode)
 	}
 }
 
-void AALSBaseCharacter::OnOverlayStateChanged(EALSOverlayState NewOverlayState)
-{
-	PrevOverlayState = OverlayState;
-	OverlayState = NewOverlayState;
-}
-
-void AALSBaseCharacter::OnMoveForwardBackwardTriggered(const FInputActionValue& Value)
+void AALSBaseCharacter::OnMoveTriggered(const FInputActionValue& Value)
 {
 	if (MovementState == EALSMovementState::Grounded || MovementState == EALSMovementState::InAir)
 	{
+		FVector2D InputVector = Value.Get<FVector2D>();
 		FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
-		AddMovementInput(UKismetMathLibrary::GetForwardVector(Rot), Value.GetMagnitude());
+		AddMovementInput(UKismetMathLibrary::GetForwardVector(Rot), InputVector.Y);
+		AddMovementInput(UKismetMathLibrary::GetRightVector(Rot), InputVector.X);
 	}
 }
 
-void AALSBaseCharacter::OnMoveLeftRightTriggered(const FInputActionValue& Value)
+void AALSBaseCharacter::OnLookTriggered(const FInputActionValue& Value)
 {
-	if (MovementState == EALSMovementState::Grounded || MovementState == EALSMovementState::InAir)
-	{
-		FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
-		AddMovementInput(UKismetMathLibrary::GetRightVector(Rot), Value.GetMagnitude());
-	}
-}
-
-void AALSBaseCharacter::OnLookUpDownTriggered(const FInputActionValue& Value)
-{
-	AddControllerPitchInput(Value.GetMagnitude());
-}
-
-void AALSBaseCharacter::OnLookLeftRightTriggered(const FInputActionValue& Value)
-{
-	AddControllerYawInput(Value.GetMagnitude());
+	FVector2D InputVector = Value.Get<FVector2D>();
+	AddControllerPitchInput(InputVector.Y);
+	AddControllerYawInput(InputVector.X);
 }
 
 void AALSBaseCharacter::OnJumpTriggered(const FInputActionValue& Value)
@@ -646,7 +605,7 @@ void AALSBaseCharacter::OnJumpTriggered(const FInputActionValue& Value)
 	{
 	case EALSMovementState::Grounded:
 		// 不能攀爬，则跳起
-		if (bHasMovementInput && !MantleCheck(GroundTraceSettings, EDrawDebugTrace::Type::ForDuration))
+		if (bHasMovementInput)
 		{
 			// 如果是站立就跳起，如果是蹲下就回到站立
 			switch (Stance)
@@ -657,9 +616,6 @@ void AALSBaseCharacter::OnJumpTriggered(const FInputActionValue& Value)
 				UnCrouch();
 			}
 		}
-	case EALSMovementState::InAir:
-		// 如果是在空中按跳跃，进行攀爬检查
-		MantleCheck(FallingTraceSettings, EDrawDebugTrace::Type::ForDuration);
 	case EALSMovementState::Ragdoll:
 		RagdollStart();
 	}
@@ -813,216 +769,6 @@ void AALSBaseCharacter::RagdollEnd()
 	// TODO: 待实现
 }
 
-bool AALSBaseCharacter::MantleCheck(const FALSMantleTraceSettings& MantleTraceSettings, EDrawDebugTrace::Type DebugType)
-{
-	// Mantle相关的先注释掉吧，个人认为作者这里的实现过于复杂了，只有检测可以参考一下
-	// 个人认为作者这里的实现过于复杂了，和角色本身的耦合也比较严重，后面再思考如何优化
-	return false;
-	//
-	//
-	// FVector InitialTraceImpactPoint;
-	// FVector InitialTraceImpactNormal;
-	// FVector DownTraceLocation;
-	// UPrimitiveComponent* HitComponent;
-	// FTransform TargetTransform;
-	// float MantleHeight = 0.f;
-	// EALSMantleType MantleType = EALSMantleType::LowMantle;
-	// FVector CapsuleBaseLocation = GetCapsuleBaseLocation(2.f);
-	// FVector MovementInput = GetPlayerMovementInput();
-	// TArray<AActor*> ActorsToIgnore;
-	//
-	// // HitResult.bBlockingHit: 为是否发生了Block类型的碰撞，如果为false则代表发生了Overlap
-	// // HitResult.bStartPenetrating: 是否发生渗透现象，即碰撞起点是否在物体内部
-	// // HitResult.Location: 当没有bStartPenetrating时为:碰撞时碰撞体所在位置. 当有bStartPenetrating时与TraceStart相等
-	// // HitResult.ImpactPoint: 碰撞点位置
-	//
-	// {
-	// 	// 从输入方向后方向前方做Capsule Trace
-	// 	// 第一次Trace：从输入方向后30cm向前进距离做Trace，用于Trace的胶囊体位置保持在Trace范围中心，高度和最大最小高度差一致
-	// 	// TraceStart: CapsuleBaseLocation向输入方向后退30cm再加上Trace范围的中点
-	// 	FVector TraceStart = CapsuleBaseLocation * MovementInput * -30 + FVector(
-	// 		0.f, 0.f, (MantleTraceSettings.MinLedgeHeight + MantleTraceSettings.MaxLedgeHeight) / 2);
-	// 	// TraceEnd: TraceStart向输入方向前进配置的距离
-	// 	FVector TraceEnd = TraceStart + MovementInput * MantleTraceSettings.ReachDistance;
-	// 	// TraceRadius: 配置值
-	// 	float TraceRadius = MantleTraceSettings.ForwardTraceRadius;
-	// 	// TraceHalfHeight: 最大高度和最小高度差的一半
-	// 	float TraceHalfHeight = (MantleTraceSettings.MaxLedgeHeight - MantleTraceSettings.MinLedgeHeight) / 2 + 1;
-	//
-	// 	FHitResult HitResult;
-	// 	UKismetSystemLibrary::CapsuleTraceSingle(this, TraceStart, TraceEnd, TraceRadius, TraceHalfHeight,
-	// 	                                         ETraceTypeQuery::TraceTypeQuery3, false, ActorsToIgnore,
-	// 	                                         GetTraceDebugType(DebugType), HitResult, true);
-	// 	// 必须要有命中且命中点可以行走才继续攀爬检测
-	// 	if (GetCharacterMovement() && GetCharacterMovement()->IsWalkable(HitResult) && HitResult.bBlockingHit && !
-	// 		HitResult.bStartPenetrating)
-	// 	{
-	// 		InitialTraceImpactPoint = HitResult.ImpactPoint;
-	// 		InitialTraceImpactNormal = HitResult.ImpactNormal;
-	// 	}
-	// 	else
-	// 	{
-	// 		return false;
-	// 	}
-	// }
-	//
-	// {
-	// 	// 第二次Trace，从命中点上方向下方做Sphere Trace
-	// 	FVector TraceEnd = FVector(InitialTraceImpactPoint.X, InitialTraceImpactPoint.Y, CapsuleBaseLocation.Z);
-	// 	FVector TraceStart = TraceEnd + FVector(
-	// 		0.f, 0.f, MantleTraceSettings.MaxLedgeHeight + MantleTraceSettings.DownwardTraceRadius + 1);
-	// 	float TraceRadius = MantleTraceSettings.DownwardTraceRadius;
-	// 	FHitResult HitResult;
-	// 	UKismetSystemLibrary::SphereTraceSingle(this, TraceStart, TraceEnd, TraceRadius, TraceTypeQuery3, false,
-	// 	                                        ActorsToIgnore, GetTraceDebugType(DebugType), HitResult, true);
-	//
-	// 	if (GetCharacterMovement() && GetCharacterMovement()->IsWalkable(HitResult) && HitResult.bBlockingHit)
-	// 	{
-	// 		// 取碰撞时球形的下顶点
-	// 		DownTraceLocation = FVector(HitResult.Location.X, HitResult.Location.Y, HitResult.ImpactPoint.Z);
-	// 		HitComponent = HitResult.GetComponent();
-	// 	}
-	// 	else
-	// 	{
-	// 		return false;
-	// 	}
-	// }
-	//
-	// {
-	// 	// 第三次Trace，检测是否可以把角色放到目标位置上
-	// 	FVector TargetCapsuleLocation = GetCapsuleLocationFormBase(DownTraceLocation, 2.f);
-	// 	if (!CapsuleHasRoomCheck(GetCapsuleComponent(), TargetCapsuleLocation, 0.f, 0.f, DebugType))
-	// 	{
-	// 		return false;
-	// 	}
-	//
-	// 	FRotator TargetCapsuleRotation = UKismetMathLibrary::Conv_VectorToRotator(
-	// 		InitialTraceImpactNormal * FVector(-1.f, -1.f, 0));
-	// 	TargetTransform = FTransform(TargetCapsuleRotation, TargetCapsuleLocation, FVector::OneVector);
-	// 	MantleHeight = (TargetCapsuleLocation - GetActorLocation()).Z;
-	// }
-	//
-	// switch (MovementState)
-	// {
-	// case EALSMovementState::InAir:
-	// 	MantleType = EALSMantleType::FallingCatch;
-	// default:
-	// 	MantleType = MantleHeight > 125.f ? EALSMantleType::HighMantle : EALSMantleType::LowMantle;
-	// }
-	//
-	// // 攀爬检测通过，开始攀爬
-	// MantleStart(MantleHeight, FALSComponentAndTransform(TargetTransform, HitComponent), MantleType);
-	// return true;
-}
-
-void AALSBaseCharacter::MantleStart(float MantleHeight, FALSComponentAndTransform MantleLedgeWS,
-                                    EALSMantleType MantleType)
-{
-	return;
-	//
-	// FALSMantleAsset MantleAsset = GetMantleAsset(MantleType);
-	//
-	// // 通过MantleAsset初始化MantleParams
-	// MantleParams.AnimMontage = MantleAsset.AnimMontage;
-	// MantleParams.StartingPosition = UKismetMathLibrary::MapRangeClamped(MantleHeight, MantleAsset.LowHeight,
-	//                                                                     MantleAsset.HighHeight,
-	//                                                                     MantleAsset.LowStartPosition,
-	//                                                                     MantleAsset.HighStartPosition);
-	// MantleParams.PlayRate = UKismetMathLibrary::MapRangeClamped(MantleHeight, MantleAsset.LowHeight,
-	//                                                             MantleAsset.HighHeight, MantleAsset.LowPlayRate,
-	//                                                             MantleAsset.HighPlayRate);
-	// MantleParams.StartingOffset = MantleAsset.StartingOffset;
-	//
-	// // 世界空间转换为局部空间
-	// if (MantleLedgeWS.Component)
-	// {
-	// 	MantleLedgeLS.Component = MantleLedgeWS.Component;
-	// 	FTransform World2Component =
-	// 		UKismetMathLibrary::InvertTransform(MantleLedgeWS.Component->GetComponentToWorld());
-	// 	MantleLedgeLS.Transform = MantleLedgeWS.Transform * World2Component;
-	// }
-	//
-	// // 缓存目标Transform，计算Offset
-	// MantleTarget = MantleLedgeWS.Transform;
-	// FTransform ActorTransform = GetActorTransform();
-	// MantleActualStartOffset = FTransform(ActorTransform.Rotator() - MantleTarget.Rotator(),
-	//                                      ActorTransform.GetLocation() - MantleTarget.GetLocation(),
-	//                                      ActorTransform.GetScale3D() - MantleTarget.GetScale3D());
-	//
-	// // 计算MantleAnimatedOffset
-	// FVector MantleTargetDirection = UKismetMathLibrary::Conv_RotatorToVector(MantleTarget.Rotator());
-	// FVector MantleAnimatedStartLocation = FVector(-MantleTargetDirection.X * MantleParams.StartingOffset.Y,
-	//                                               -MantleTargetDirection.Y * MantleParams.StartingOffset.Y,
-	//                                               -MantleParams.StartingOffset.Z);
-	// FVector MantleAnimatedStartScale = FVector::OneVector - MantleTarget.GetScale3D();
-	// MantleAnimatedStartOffset = FTransform(FRotator::ZeroRotator, MantleAnimatedStartLocation,
-	//                                        MantleAnimatedStartScale);
-	//
-	// // 设置Movement
-	// if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
-	// {
-	// 	MoveComp->SetMovementMode(MOVE_None);
-	// 	SetMovementState(EALSMovementState::Mantling);
-	// }
-}
-
-void AALSBaseCharacter::MantleEnd()
-{
-}
-
-void AALSBaseCharacter::MantleUpdate()
-{
-}
-
-bool AALSBaseCharacter::CapsuleHasRoomCheck(UCapsuleComponent* Capsule, FVector TargetLocation, float HeightOffset,
-                                            float RadiusOffset, EDrawDebugTrace::Type DebugType)
-{
-	if (!Capsule)
-	{
-		return false;
-	}
-	TArray<AActor*> ActorsToIgnore;
-
-	// 将目标位置分别向上和向下一段距离进行检测
-	float Height = Capsule->GetScaledCapsuleHalfHeight_WithoutHemisphere() - RadiusOffset + HeightOffset;
-	FVector TraceStart = TargetLocation + FVector(0.f, 0.f, Height);
-	FVector TraceEnd = TargetLocation - FVector(0.f, 0.f, Height);
-	float TraceRadius = Capsule->GetScaledCapsuleRadius() + RadiusOffset;
-	FHitResult HitResult;
-	UKismetSystemLibrary::SphereTraceSingleByProfile(
-		this,
-		TraceStart,
-		TraceEnd,
-		TraceRadius,
-		TEXT("ALS_Character"),
-		false,
-		ActorsToIgnore,
-		GetTraceDebugType(DebugType),
-		HitResult,
-		true,
-		FColor::Green,
-		FColor::Purple,
-		1.f
-	);
-
-	return UKismetMathLibrary::BooleanNOR(HitResult.bBlockingHit, HitResult.bStartPenetrating);
-}
-
-FALSMantleAsset AALSBaseCharacter::GetMantleAsset(EALSMantleType MantleType)
-{
-	switch (MantleType)
-	{
-	case EALSMantleType::HighMantle:
-		return MantleSettings.HighMantleAsset;
-	case EALSMantleType::LowMantle:
-		return MantleSettings.LowMantleAsset;
-	case EALSMantleType::FallingCatch:
-		return MantleSettings.FallingCatchMantleAsset;
-	}
-
-	return FALSMantleAsset();
-}
-
 float AALSBaseCharacter::GetAnimCurveValue(FName CurveName) const
 {
 	if (MainAnimInstance)
@@ -1037,10 +783,9 @@ FVector AALSBaseCharacter::GetPlayerMovementInput()
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
 	{
 		FRotator ControlHorizontal = FRotator(0.f, GetControlRotation().Yaw, 0.f);
-		FVector ControlForwardWithInput = UKismetMathLibrary::GetForwardVector(ControlHorizontal) *
-			EnhancedInputComponent->GetBoundActionValue(InputActions.MoveForwardBackwardAction).GetMagnitude();
-		FVector ControlRightWithInput = UKismetMathLibrary::GetRightVector(ControlHorizontal) *
-			EnhancedInputComponent->GetBoundActionValue(InputActions.MoveLeftRightAction).GetMagnitude();
+		FVector2D InputVector = EnhancedInputComponent->GetBoundActionValue(InputActions.MoveAction).Get<FVector2D>();
+		FVector ControlForwardWithInput = UKismetMathLibrary::GetForwardVector(ControlHorizontal) * InputVector.Y;
+		FVector ControlRightWithInput = UKismetMathLibrary::GetRightVector(ControlHorizontal) * InputVector.X;
 		return UKismetMathLibrary::Normal(ControlForwardWithInput + ControlRightWithInput, 0.001);
 	}
 	return FVector::ZeroVector;
@@ -1171,27 +916,6 @@ float AALSBaseCharacter::CalcGroundedRotationRate() const
 		return ClampedAimYawRate * CurMovementSettings.RotationRateCurve->GetFloatValue(GetMappedSpeed());
 	}
 	return 0.f;
-}
-
-FVector AALSBaseCharacter::GetCapsuleBaseLocation(float ZOffset)
-{
-	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
-	{
-		return Capsule->K2_GetComponentLocation() - (Capsule->GetScaledCapsuleHalfHeight() + ZOffset)
-			* Capsule->GetUpVector();
-	}
-
-	return FVector::ZeroVector;
-}
-
-FVector AALSBaseCharacter::GetCapsuleLocationFormBase(FVector BaseLocation, float ZOffset)
-{
-	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
-	{
-		return BaseLocation + FVector(0.f, 0.f, Capsule->GetScaledCapsuleHalfHeight() + ZOffset);
-	}
-
-	return FVector::ZeroVector;
 }
 
 EDrawDebugTrace::Type AALSBaseCharacter::GetTraceDebugType(EDrawDebugTrace::Type TraceType) const

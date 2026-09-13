@@ -28,8 +28,7 @@ public:
 	                              OUT EALSRotationMode& OutRotationMode,
 	                              OUT EALSGait& OutGait,
 	                              OUT EALSStance& OutStance,
-	                              OUT EALSViewMode& OutViewMode,
-	                              OUT EALSOverlayState& OutOverlayState);
+	                              OUT EALSViewMode& OutViewMode);
 	virtual void GetEssentialValues(OUT FVector& OutVelocity,
 	                                OUT FVector& OutAcceleration,
 	                                OUT FVector& OutMovementInput,

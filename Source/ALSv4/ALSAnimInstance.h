@@ -3,18 +3,23 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ALSBaseCharacter.h"
+#include "IALSAnimInterface.h"
 #include "Animation/AnimInstance.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "ALSAnimInstance.generated.h"
 
+class AALSBaseCharacter;
+
 UCLASS()
-class ALSV4_API UALSAnimInstance : public UAnimInstance
+class ALSV4_API UALSAnimInstance : public UAnimInstance, public IIALSAnimInterface
 {
 	GENERATED_BODY()
 
 public:
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
+	virtual void OnJumped() override;
+	virtual void SetGroundedEntryState(EALSGroundedEntryState InGroundedEntryState) override;
 
 protected:
 	void UpdateCharacterInfo();
@@ -84,11 +89,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
 	UCurveFloat* StrideBlend_C_Walk;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
+	UCurveFloat* LandPredictionCurve;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
+	UCurveFloat* LeanInAirCurve;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
 	UCurveVector* YawOffset_FB;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
 	UCurveVector* YawOffset_LR;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
-	UCurveFloat* LandPredictionCurve;
 	// FootIK
 	FALSFootIKSettings FootIKSettings;
 
@@ -108,47 +115,76 @@ protected:
 	FALSDynamicMontageParams DynamicTransitionParams_R;
 
 	TObjectPtr<AALSBaseCharacter> Character;
+	FTimerHandle JumpTimerHandle;
+
 	float DeltaTime;
 	// CharacterInfo
 	FVector Velocity;
 	FVector Acceleration;
 	FVector MovementInput;
 	bool bIsMoving;
+	UPROPERTY(BlueprintReadOnly)
 	bool bHasMovementInput;
+	UPROPERTY(BlueprintReadOnly)
 	float Speed;
 	float MovementInputAmount;
 	FRotator AimingRotation;
 	float AimYawRate;
+	UPROPERTY(BlueprintReadOnly)
 	EALSMovementState MovementState;
 	EALSMovementState PrevMovementState;
+	UPROPERTY(BlueprintReadOnly)
 	EALSMovementAction MovementAction;
+	UPROPERTY(BlueprintReadOnly)
 	EALSRotationMode RotationMode;
+	UPROPERTY(BlueprintReadOnly)
 	EALSGait Gait;
+	UPROPERTY(BlueprintReadOnly)
 	EALSStance Stance;
 	EALSViewMode ViewMode;
-	EALSOverlayState OverlayState;
 	// MovementValues
+	UPROPERTY(BlueprintReadOnly)
 	bool bShouldMove;
+	UPROPERTY(BlueprintReadOnly)
 	FALSVelocityBlend VelocityBlend;
+	UPROPERTY(BlueprintReadOnly)
 	float DiagonalScaleAmount;
+	UPROPERTY(BlueprintReadOnly)
 	FVector RelativeAccelerationAmount;
+	UPROPERTY(BlueprintReadOnly)
 	FALSLeanAmount LeanAmount;
+	UPROPERTY(BlueprintReadOnly)
 	float WalkRunBlend;
+	UPROPERTY(BlueprintReadOnly)
 	float StrideBlend;
+	UPROPERTY(BlueprintReadOnly)
 	float StandingPlayRate;
 	float CrouchingPlayRate;
+	UPROPERTY(BlueprintReadOnly)
 	EALSMovementDirection MovementDirection;
+	UPROPERTY(BlueprintReadOnly)
+	EALSGroundedEntryState GroundedEntryState;
 	// RotationValues
+	UPROPERTY(BlueprintReadOnly)
 	float FYaw;
+	UPROPERTY(BlueprintReadOnly)
 	float BYaw;
+	UPROPERTY(BlueprintReadOnly)
 	float LYaw;
+	UPROPERTY(BlueprintReadOnly)
 	float RYaw;
+	UPROPERTY(BlueprintReadOnly)
 	bool Rotate_L;
+	UPROPERTY(BlueprintReadOnly)
 	bool Rotate_R;
+	UPROPERTY(BlueprintReadOnly)
 	float RotateRate;
 	float ElapsedDelayTime;
+	UPROPERTY(BlueprintReadOnly)
 	float RotationScale;
 	// InAirValues
+	bool bJumped;
+	float JumpPlayRate;
 	float FallSpeed;
 	float LandPrediction;
 	// RagdollValues
@@ -164,41 +200,36 @@ protected:
 	float LeftYawTime;
 	float RightYawTime;
 	//Foot IK
+	UPROPERTY(BlueprintReadOnly)
 	float FootLock_L_Alpha;
+	UPROPERTY(BlueprintReadOnly)
 	float FootLock_R_Alpha;
+	UPROPERTY(BlueprintReadOnly)
 	FVector FootLock_L_Location;
+	UPROPERTY(BlueprintReadOnly)
 	FVector FootLock_R_Location;
+	UPROPERTY(BlueprintReadOnly)
 	FRotator FootLock_L_Rotation;
+	UPROPERTY(BlueprintReadOnly)
 	FRotator FootLock_R_Rotation;
+	UPROPERTY(BlueprintReadOnly)
 	FVector FootOffset_L_Location;
+	UPROPERTY(BlueprintReadOnly)
 	FVector FootOffset_R_Location;
+	UPROPERTY(BlueprintReadOnly)
 	FRotator FootOffset_L_Rotation;
+	UPROPERTY(BlueprintReadOnly)
 	FRotator FootOffset_R_Rotation;
+	UPROPERTY(BlueprintReadOnly)
 	FVector PelvisOffset;
+	UPROPERTY(BlueprintReadOnly)
 	float PelvisAlpha;
 	// LayerValues
-	int OverlayOverrideState;
 	float Enable_AimOffset;
+	UPROPERTY(BlueprintReadOnly)
 	float BasePose_N;
+	UPROPERTY(BlueprintReadOnly)
 	float BasePose_CLF;
-	float Arm_L;
-	float Arm_L_Add;
-	float Arm_L_LS;
-	float Arm_L_MS;
-	float Arm_R;
-	float Arm_R_Add;
-	float Arm_R_LS;
-	float Arm_R_MS;
-	float Hand_L;
-	float Hand_R;
-	float Legs;
-	float Legs_Add;
-	float Pelvis;
-	float Pelvis_Add;
-	float Spine;
-	float Spine_Add;
-	float Head;
-	float Head_Add;
 	float Enable_HandIK_L;
 	float Enable_HandIK_R;
 };

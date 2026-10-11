@@ -6,6 +6,7 @@ public class ALSv4 : ModuleRules
 {
 	public ALSv4(ReadOnlyTargetRules Target) : base(Target)
 	{
+		OptimizeCode = CodeOptimization.Never;
 		PrivateDependencyModuleNames.AddRange(new string[] { "AnimGraphRuntime" });
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" });

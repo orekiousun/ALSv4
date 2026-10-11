@@ -84,11 +84,14 @@ void UALSAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 				Rotate_L = false;
 				Rotate_R = false;
 			}
+			break;
 		}
 	case EALSMovementState::InAir:
 		UpdateInAirValues();
+		break;
 	case EALSMovementState::Ragdoll:
 		UpdateRagdollValues();
+		break;
 	}
 }
 
@@ -148,6 +151,7 @@ void UALSAnimInstance::UpdateAimingValues()
 	case EALSRotationMode::Aiming:
 		AimSweepTime = UKismetMathLibrary::MapRangeClamped(AimingAngle.Y, -90.f, 90.f, 1.f, 0.f);
 		SpineRotation = FRotator(0.f, 0.f, AimingAngle.X / 4);
+		break;
 	case EALSRotationMode::VelocityDirection:
 		if (bHasMovementInput)
 		{
@@ -158,6 +162,7 @@ void UALSAnimInstance::UpdateAimingValues()
 			InputYawOffsetTime = UKismetMathLibrary::FInterpTo(InputYawOffsetTime, TargetYawOffsetTime, DeltaTime,
 			                                                   InputYawOffsetTimeInterpSpeed);
 		}
+		break;
 	}
 
 	// 计算LeftYawTime、RightYawTime、ForwardYawTime
@@ -403,10 +408,10 @@ FALSVelocityBlend UALSAnimInstance::CalcVelocityBlend()
 	float Sum = UKismetMathLibrary::Abs(RelativeVelocityDir.X) + UKismetMathLibrary::Abs(RelativeVelocityDir.Y) +
 		UKismetMathLibrary::Abs(RelativeVelocityDir.Z);
 	FVector RelativeDirection = RelativeVelocityDir / Sum;
-	Ret.F = UKismetMathLibrary::Clamp(RelativeDirection.X, 0.f, 1.f);
-	Ret.B = UKismetMathLibrary::Clamp(RelativeDirection.X, -1.f, 0.f);
-	Ret.L = UKismetMathLibrary::Clamp(RelativeDirection.Y, -1.f, 0.f);
-	Ret.R = UKismetMathLibrary::Clamp(RelativeDirection.Y, 0.f, 1.f);
+	Ret.F = UKismetMathLibrary::FClamp(RelativeDirection.X, 0.f, 1.f);
+	Ret.B = UKismetMathLibrary::Abs(UKismetMathLibrary::FClamp(RelativeDirection.X, -1.f, 0.f));
+	Ret.L = UKismetMathLibrary::Abs(UKismetMathLibrary::FClamp(RelativeDirection.Y, -1.f, 0.f));
+	Ret.R = UKismetMathLibrary::FClamp(RelativeDirection.Y, 0.f, 1.f);
 	return Ret;
 }
 
@@ -451,7 +456,7 @@ float UALSAnimInstance::CalcStrideBlend()
 {
 	// 获取当前步态
 	float Weight_Gait = GetCurveValue(TEXT("Weight_Gait"));
-	float Weight_Run = UKismetMathLibrary::Clamp(Weight_Gait - 1, 0.f, 1.f);
+	float Weight_Run = UKismetMathLibrary::FClamp(Weight_Gait - 1, 0.f, 1.f);
 
 	// 混合步态对应的步幅
 	float StrideBlendNWalk = UALSBlueprintFunctionLibrary::GetCurveFloatValue(StrideBlend_N_Walk, Speed);
@@ -473,8 +478,8 @@ float UALSAnimInstance::CalcStandingPlayRate()
 
 	// 从曲线获取当前的步态
 	float Weight_Gait = GetCurveValue(TEXT("Weight_Gait"));
-	float Weight_Run = UKismetMathLibrary::Clamp(Weight_Gait - 1, 0.f, 1.f);
-	float Weight_Sprint = UKismetMathLibrary::Clamp(Weight_Gait - 2, 0.f, 1.f);
+	float Weight_Run = UKismetMathLibrary::FClamp(Weight_Gait - 1, 0.f, 1.f);
+	float Weight_Sprint = UKismetMathLibrary::FClamp(Weight_Gait - 2, 0.f, 1.f);
 
 	// 混合播放速率
 	float Run_Percent = UKismetMathLibrary::Lerp(Speed / AnimatedSpeed.AnimatedWalkSpeed,
@@ -483,7 +488,7 @@ float UALSAnimInstance::CalcStandingPlayRate()
 	                                                Weight_Sprint);
 	float PlayRate = Sprint_Percent / StrideBlend;
 	PlayRate /= GetOwningComponent()->GetComponentScale().Z;
-	return UKismetMathLibrary::Clamp(PlayRate, 0.f, 3.f);
+	return UKismetMathLibrary::FClamp(PlayRate, 0.f, 3.f);
 }
 
 float UALSAnimInstance::CalcCrouchingPlayRate()
@@ -496,7 +501,7 @@ float UALSAnimInstance::CalcCrouchingPlayRate()
 	float PlayRate = Speed / AnimatedSpeed.AnimatedCrouchSpeed;
 	PlayRate /= StrideBlend;
 	PlayRate /= GetOwningComponent()->GetComponentScale().Z;
-	return UKismetMathLibrary::Clamp(PlayRate, 0.f, 2.f);
+	return UKismetMathLibrary::FClamp(PlayRate, 0.f, 2.f);
 }
 
 EALSMovementDirection UALSAnimInstance::CalcMovementDirection()
@@ -534,7 +539,7 @@ float UALSAnimInstance::CalcLandPrediction()
 
 	FVector TraceStart = CapsuleComponent->GetComponentLocation();
 	FVector Direction = UKismetMathLibrary::Vector_NormalUnsafe(FVector(Velocity.X, Velocity.Y,
-	                                                                    UKismetMathLibrary::Clamp(
+	                                                                    UKismetMathLibrary::FClamp(
 		                                                                    Velocity.Z, -4000.f, -200.f)));
 
 	FVector TraceEnd = TraceStart + Direction * UKismetMathLibrary::MapRangeClamped(
@@ -594,11 +599,13 @@ void UALSAnimInstance::UpdateFootIK()
 			SetFootOffset(TEXT("Enable_FootIK_R"), TEXT("ik_foot_r"), TEXT("root"), FootOffset_R_Target,
 			              FootLock_R_Location, FootOffset_R_Rotation);
 			SetPelvisIKOffset(FootOffset_L_Target, FootOffset_R_Target);
+			break;
 		}
 	case EALSMovementState::InAir:
 		{
 			SetPelvisIKOffset(FVector::ZeroVector, FVector::ZeroVector);
 			ResetIKOffset();
+			break;
 		}
 	}
 }

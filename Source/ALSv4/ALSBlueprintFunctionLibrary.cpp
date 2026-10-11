@@ -49,8 +49,8 @@ EALSMovementDirection UALSBlueprintFunctionLibrary::CalcQuadrant(EALSMovementDir
                                                                  float FLThreshold, float BRThreshold,
                                                                  float BLThreshold, float Buffer, float Angle)
 {
-	bool bIncreaseBuffer_FB = Current == EALSMovementDirection::Forward || Current == EALSMovementDirection::Backward;
-	bool bIncreaseBuffer_LR = Current == EALSMovementDirection::Left || Current == EALSMovementDirection::Right;
+	bool bIncreaseBuffer_FB = Current != EALSMovementDirection::Forward || Current != EALSMovementDirection::Backward;
+	bool bIncreaseBuffer_LR = Current != EALSMovementDirection::Left || Current != EALSMovementDirection::Right;
 	if (AngleInRange(Angle, FLThreshold, FRThreshold, Buffer, bIncreaseBuffer_FB))
 	{
 		return EALSMovementDirection::Forward;

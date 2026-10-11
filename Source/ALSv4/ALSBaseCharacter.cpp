@@ -53,16 +53,15 @@ void AALSBaseCharacter::Tick(float DeltaTime)
 	switch (MovementState)
 	{
 	case EALSMovementState::Grounded:
-		{
-			UpdateCharacterMovement();
-			UpdateGroundedRotation();
-		}
+		UpdateCharacterMovement();
+		UpdateGroundedRotation();
+		break;
 	case EALSMovementState::InAir:
-		{
-			UpdateInAirRotation();
-		}
+		UpdateInAirRotation();
+		break;
 	case EALSMovementState::Ragdoll:
 		RagdollUpdate();
+		break;
 	}
 	CacheValues();
 	DrawDebugShapes();
@@ -285,8 +284,10 @@ void AALSBaseCharacter::OnBeginPlay()
 	{
 	case EALSStance::Standing:
 		UnCrouch();
+		break;
 	case EALSStance::Crouching:
 		Crouch();
+		break;
 	}
 
 	// 更新旋转
@@ -354,23 +355,20 @@ void AALSBaseCharacter::UpdateDynamicMovementSettings(EALSGait InGait)
 	CurMovementSettings = GetTargetMovementSettings();
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
 	{
-		switch (AllowedGait)
+		switch (InGait)
 		{
 		case EALSGait::Walking:
-			{
-				MoveComp->MaxWalkSpeed = CurMovementSettings.WalkSpeed;
-				MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.WalkSpeed;
-			}
+			MoveComp->MaxWalkSpeed = CurMovementSettings.WalkSpeed;
+			MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.WalkSpeed;
+			break;
 		case EALSGait::Running:
-			{
-				MoveComp->MaxWalkSpeed = CurMovementSettings.RunSpeed;
-				MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.RunSpeed;
-			}
+			MoveComp->MaxWalkSpeed = CurMovementSettings.RunSpeed;
+			MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.RunSpeed;
+			break;
 		case EALSGait::Sprinting:
-			{
-				MoveComp->MaxWalkSpeed = CurMovementSettings.SprintSpeed;
-				MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.SprintSpeed;
-			}
+			MoveComp->MaxWalkSpeed = CurMovementSettings.SprintSpeed;
+			MoveComp->MaxWalkSpeedCrouched = CurMovementSettings.SprintSpeed;
+			break;
 		}
 
 		// 根据当前速度决定步态，根据步态写入MovementComp参数
@@ -397,6 +395,7 @@ void AALSBaseCharacter::UpdateGroundedRotation()
 				// 插值到速度方向，只保留Yaw
 				SmoothCharacterRotation(FRotator(0.f, LastVelocityRotation.Yaw, 0.f), 800.f,
 				                        CalcGroundedRotationRate());
+				break;
 			case EALSRotationMode::LookingDirection:
 				switch (Gait)
 				{
@@ -408,15 +407,19 @@ void AALSBaseCharacter::UpdateGroundedRotation()
 						SmoothCharacterRotation(FRotator(0.f, GetControlRotation().Yaw + AnimYawOffset, 0.f),
 						                        500.f,
 						                        CalcGroundedRotationRate());
+						break;
 					}
 				case EALSGait::Sprinting:
 					// 冲刺还是插值到速度方向
 					SmoothCharacterRotation(FRotator(0.f, LastVelocityRotation.Yaw, 0.f), 500.f,
 					                        CalcGroundedRotationRate());
+					break;
 				}
+				break;
 			case EALSRotationMode::Aiming:
 				// 插值到Controller方向
 				SmoothCharacterRotation(FRotator(0.f, GetControlRotation().Yaw, 0.f), 1000.f, 20.f);
+				break;
 			}
 		}
 		else
@@ -436,11 +439,13 @@ void AALSBaseCharacter::UpdateGroundedRotation()
 				TargetRotation = GetActorRotation();
 			}
 		}
+		break;
 	case EALSMovementAction::Rolling:
 		if (bHasMovementInput)
 		{
 			SmoothCharacterRotation(FRotator(0.f, LastMovementInputRotation.Yaw, 0.f), 0.f, 2.f);
 		}
+		break;
 	}
 }
 
@@ -451,11 +456,11 @@ void AALSBaseCharacter::UpdateInAirRotation()
 	case EALSRotationMode::VelocityDirection:
 	case EALSRotationMode::LookingDirection:
 		SmoothCharacterRotation(FRotator(0.f, InAirRotation.Yaw, 0.f), 0.f, 5.f);
+		break;
 	case EALSRotationMode::Aiming:
-		{
-			SmoothCharacterRotation(FRotator(0.f, GetControlRotation().Yaw, 0.f), 0.f, 5.f);
-			InAirRotation = GetActorRotation();
-		}
+		SmoothCharacterRotation(FRotator(0.f, GetControlRotation().Yaw, 0.f), 0.f, 5.f);
+		InAirRotation = GetActorRotation();
+		break;
 	}
 }
 
@@ -504,10 +509,13 @@ void AALSBaseCharacter::OnMovementStateChanged(EALSMovementState NewMovementStat
 				{
 					UnCrouch();
 				}
+				break;
 			}
 		case EALSMovementAction::Rolling:
 			RagdollStart();
+			break;
 		}
+		break;
 	}
 }
 
@@ -526,8 +534,10 @@ void AALSBaseCharacter::OnMovementActionChanged(EALSMovementAction NewMovementAc
 		{
 		case EALSStance::Standing:
 			UnCrouch();
+			break;
 		case EALSStance::Crouching:
 			Crouch();
+			break;
 		}
 	}
 }
@@ -567,11 +577,13 @@ void AALSBaseCharacter::OnViewModeChanged(EALSViewMode NewViewMode)
 		{
 			SetRotationMode(DesiredRotationMode);
 		}
+		break;
 	case EALSViewMode::FirstPerson:
 		if (RotationMode == EALSRotationMode::VelocityDirection)
 		{
 			SetRotationMode(EALSRotationMode::LookingDirection);
 		}
+		break;
 	}
 }
 
@@ -604,20 +616,20 @@ void AALSBaseCharacter::OnJumpTriggered(const FInputActionValue& Value)
 	switch (MovementState)
 	{
 	case EALSMovementState::Grounded:
-		// 不能攀爬，则跳起
-		if (bHasMovementInput)
+		// 如果是站立就跳起，如果是蹲下就回到站立
+		switch (Stance)
 		{
-			// 如果是站立就跳起，如果是蹲下就回到站立
-			switch (Stance)
-			{
-			case EALSStance::Standing:
-				Jump();
-			case EALSStance::Crouching:
-				UnCrouch();
-			}
+		case EALSStance::Standing:
+			Jump();
+			break;
+		case EALSStance::Crouching:
+			UnCrouch();
+			break;
 		}
+		break;
 	case EALSMovementState::Ragdoll:
 		RagdollStart();
+		break;
 	}
 }
 
@@ -638,16 +650,15 @@ void AALSBaseCharacter::OnStanceTriggered(const FInputActionValue& Value)
 			switch (Stance)
 			{
 			case EALSStance::Standing:
-				{
-					DesiredStance = EALSStance::Crouching;
-					Crouch();
-				}
+				DesiredStance = EALSStance::Crouching;
+				Crouch();
+				break;
 			case EALSStance::Crouching:
-				{
-					DesiredStance = EALSStance::Standing;
-					UnCrouch();
-				}
+				DesiredStance = EALSStance::Standing;
+				UnCrouch();
+				break;
 			}
+			break;
 		case EALSMovementState::InAir:
 			// 在空中单击了下蹲，短时间内需要在着地时翻滚
 			if (GetWorld())
@@ -659,6 +670,7 @@ void AALSBaseCharacter::OnStanceTriggered(const FInputActionValue& Value)
 				TimerManager.SetTimer(
 					BreakFallTimerHandle, [this]() { bBreakFall = false; }, 0.4, false);
 			}
+			break;
 		}
 	}
 	else
@@ -669,8 +681,10 @@ void AALSBaseCharacter::OnStanceTriggered(const FInputActionValue& Value)
 		{
 		case EALSStance::Standing:
 			DesiredStance = EALSStance::Crouching;
+			break;
 		case EALSStance::Crouching:
 			DesiredStance = EALSStance::Standing;
+			break;
 		}
 	}
 }
@@ -719,8 +733,10 @@ void AALSBaseCharacter::OnAimCompleted(const FInputActionValue& Value)
 	{
 	case EALSViewMode::ThirdPerson:
 		SetRotationMode(DesiredRotationMode);
+		break;
 	case EALSViewMode::FirstPerson:
 		SetRotationMode(EALSRotationMode::LookingDirection);
+		break;
 	}
 }
 
@@ -738,8 +754,10 @@ void AALSBaseCharacter::OnRagdollTriggered(const FInputActionValue& Value)
 	case EALSMovementState::InAir:
 	case EALSMovementState::Mantling:
 		RagdollStart();
+		break;
 	case EALSMovementState::Ragdoll:
 		RagdollEnd();
+		break;
 	}
 }
 
@@ -858,6 +876,7 @@ bool AALSBaseCharacter::CanSprint() const
 			// 需满足速度方向与控制器方向的Yaw差值小于一定值才能冲刺
 			return MovementInputAmount > 0.9 && UKismetMathLibrary::Abs(DeltaRotation.Yaw) < 50.f;
 		}
+		break;
 	case EALSRotationMode::Aiming:
 		return false;
 	}

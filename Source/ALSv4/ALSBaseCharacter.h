@@ -95,8 +95,6 @@ protected:
 	void OnCameraTriggered(const FInputActionValue& Value);
 	void OnRagdollTriggered(const FInputActionValue& Value);
 
-	// 翻滚
-	void Roll();
 	// 下落时攀爬
 	void BreakFall();
 
@@ -138,7 +136,7 @@ protected:
 	EALSGait AllowedGait;
 	EALSGait ActualGait;
 	EALSGait PrevGait;
-	EALSGait DesiredGait = EALSGait::Running;
+	EALSGait DesiredGait = EALSGait::Walking;
 	EALSStance Stance;
 	EALSStance PrevStance;
 	EALSStance DesiredStance = EALSStance::Standing;

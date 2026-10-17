@@ -14,16 +14,6 @@
 
 class UEnhancedInputLocalPlayerSubsystem;
 
-#define MULTI_TAP_INPUT(WorldContextObject, DelayTime, bDoubleClick) \
-	bool bDoubleClick = false; \
-	static double LastClickTime = 0.f; \
-	if (WorldContextObject && WorldContextObject->GetWorld()) \
-	{ \
-		const double ThisClickTime = WorldContextObject->GetWorld()->GetTimeSeconds(); \
-		bDoubleClick = (ThisClickTime - LastClickTime) < DelayTime ? true : false; \
-		LastClickTime = ThisClickTime; \
-	}
-
 AALSBaseCharacter::AALSBaseCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -640,52 +630,34 @@ void AALSBaseCharacter::OnJumpCompleted(const FInputActionValue& Value)
 
 void AALSBaseCharacter::OnStanceTriggered(const FInputActionValue& Value)
 {
-	MULTI_TAP_INPUT(this, 0.3, bDoubleClick);
-	if (!bDoubleClick)
+	// 单击切换站立和下蹲
+	switch (MovementState)
 	{
-		// 单击切换站立和下蹲
-		switch (MovementState)
-		{
-		case EALSMovementState::Grounded:
-			switch (Stance)
-			{
-			case EALSStance::Standing:
-				DesiredStance = EALSStance::Crouching;
-				Crouch();
-				break;
-			case EALSStance::Crouching:
-				DesiredStance = EALSStance::Standing;
-				UnCrouch();
-				break;
-			}
-			break;
-		case EALSMovementState::InAir:
-			// 在空中单击了下蹲，短时间内需要在着地时翻滚
-			if (GetWorld())
-			{
-				bBreakFall = true;
-				// 这里延迟0.4s后将bBreakFall改回来，避免在空中只要按了下蹲过了很长时间后仍然翻滚
-				FTimerManager& TimerManager = GetWorld()->GetTimerManager();
-				TimerManager.ClearTimer(BreakFallTimerHandle);
-				TimerManager.SetTimer(
-					BreakFallTimerHandle, [this]() { bBreakFall = false; }, 0.4, false);
-			}
-			break;
-		}
-	}
-	else
-	{
-		// 双击翻滚
-		Roll();
+	case EALSMovementState::Grounded:
 		switch (Stance)
 		{
 		case EALSStance::Standing:
 			DesiredStance = EALSStance::Crouching;
+			Crouch();
 			break;
 		case EALSStance::Crouching:
 			DesiredStance = EALSStance::Standing;
+			UnCrouch();
 			break;
 		}
+		break;
+	case EALSMovementState::InAir:
+		// 在空中单击了下蹲，短时间内需要在着地时翻滚
+		if (GetWorld())
+		{
+			bBreakFall = true;
+			// 这里延迟0.4s后将bBreakFall改回来，避免在空中只要按了下蹲过了很长时间后仍然翻滚
+			FTimerManager& TimerManager = GetWorld()->GetTimerManager();
+			TimerManager.ClearTimer(BreakFallTimerHandle);
+			TimerManager.SetTimer(
+				BreakFallTimerHandle, [this]() { bBreakFall = false; }, 0.4, false);
+		}
+		break;
 	}
 }
 
@@ -758,14 +730,6 @@ void AALSBaseCharacter::OnRagdollTriggered(const FInputActionValue& Value)
 	case EALSMovementState::Ragdoll:
 		RagdollEnd();
 		break;
-	}
-}
-
-void AALSBaseCharacter::Roll()
-{
-	// TODO: 待实现，播放蒙太奇
-	if (MainAnimInstance)
-	{
 	}
 }
 

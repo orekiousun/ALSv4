@@ -89,7 +89,7 @@ enum class EALSMantleType: uint8
 	FallingCatch = 2,
 };
 
-UENUM()
+UENUM(BlueprintType)
 enum class EALSMovementDirection : uint8
 {
 	Forward = 0,
@@ -98,11 +98,22 @@ enum class EALSMovementDirection : uint8
 	Backward = 3,
 };
 
-UENUM()
+UENUM(BlueprintType)
 enum class EALSGroundedEntryState : uint8
 {
 	None,
 	Roll,
+};
+
+UENUM(BlueprintType)
+enum class EALSHipsDirection : uint8
+{
+	F = 0,
+	B = 1,
+	RF = 2,
+	RB = 3,
+	LF = 4,
+	LB = 5,
 };
 
 USTRUCT(BlueprintType)

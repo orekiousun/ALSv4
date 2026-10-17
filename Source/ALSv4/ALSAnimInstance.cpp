@@ -7,6 +7,7 @@
 #include "ALSBlueprintFunctionLibrary.h"
 #include "ALSControllerInterface.h"
 #include "KismetAnimationLibrary.h"
+#include "SequenceEvaluatorLibrary.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -157,7 +158,7 @@ void UALSAnimInstance::UpdateAimingValues()
 		{
 			// 计算InputYawOffsetTime
 			FRotator MovementRotation = UKismetMathLibrary::Conv_VectorToRotator(MovementInput);
-			float DeltaYaw = MovementRotation.Yaw - ActorRotation.Yaw;
+			float DeltaYaw = UKismetMathLibrary::NormalizedDeltaRotator(MovementRotation, ActorRotation).Yaw;
 			float TargetYawOffsetTime = UKismetMathLibrary::MapRangeClamped(DeltaYaw, -180.f, 180.f, 0.f, 1.f);
 			InputYawOffsetTime = UKismetMathLibrary::FInterpTo(InputYawOffsetTime, TargetYawOffsetTime, DeltaTime,
 			                                                   InputYawOffsetTimeInterpSpeed);
@@ -187,7 +188,8 @@ void UALSAnimInstance::UpdateLayerValue()
 void UALSAnimInstance::UpdateRotationValues()
 {
 	MovementDirection = CalcMovementDirection();
-	float YawOffset = UKismetMathLibrary::Conv_VectorToRotator(Velocity).Yaw - Character->GetControlRotation().Yaw;
+	float YawOffset = UKismetMathLibrary::NormalizedDeltaRotator(UKismetMathLibrary::Conv_VectorToRotator(Velocity),
+	                                                             Character->GetControlRotation()).Yaw;
 	FVector YawOffset_FB_Val = UALSBlueprintFunctionLibrary::GetCurveVectorValue(YawOffset_FB, YawOffset);
 	FVector YawOffset_LR_Val = UALSBlueprintFunctionLibrary::GetCurveVectorValue(YawOffset_LR, YawOffset);
 	FYaw = YawOffset_FB_Val.X;
@@ -260,7 +262,7 @@ void UALSAnimInstance::TurnInPlaceCheck()
 
 void UALSAnimInstance::TurnInPlace(FRotator TargetRotation, float PlayRateScale, float StartTime, bool bOverrideCurrent)
 {
-	float TurnAngle = TargetRotation.Yaw - Character->GetActorRotation().Yaw;
+	float TurnAngle = UKismetMathLibrary::NormalizedDeltaRotator(TargetRotation, Character->GetActorRotation()).Yaw;
 	FALSTurnInPlaceAsset TargetTurnAsset;
 	if (UKismetMathLibrary::Abs(TurnAngle) < TurnInPlaceSettings.Turn180Threshold)
 	{
@@ -510,7 +512,8 @@ EALSMovementDirection UALSAnimInstance::CalcMovementDirection()
 	{
 		return EALSMovementDirection::Forward;
 	}
-	float YawOffset = UKismetMathLibrary::Conv_VectorToRotator(Velocity).Yaw - AimingRotation.Yaw;
+	float YawOffset = UKismetMathLibrary::NormalizedDeltaRotator(UKismetMathLibrary::Conv_VectorToRotator(Velocity),
+	                                                             AimingRotation).Yaw;
 	return UALSBlueprintFunctionLibrary::CalcQuadrant(
 		MovementDirection, 70.f, -70.f, 110.f, -110.f, 5.f, YawOffset);
 }
@@ -655,7 +658,8 @@ void UALSAnimInstance::SetFootLockOffset(FVector& LocalLocation, FRotator& Local
 	if (MoveComp->IsMovingOnGround())
 	{
 		// 从上一帧的Rotation和当前Rotation获取旋转差量
-		RotationDifference = Character->GetActorRotation() - MoveComp->GetLastUpdateRotation();
+		RotationDifference = UKismetMathLibrary::NormalizedDeltaRotator(Character->GetActorRotation(),
+		                                                                MoveComp->GetLastUpdateRotation());
 	}
 
 	if (USkeletalMeshComponent* OwingComp = GetOwningComponent())
@@ -667,7 +671,7 @@ void UALSAnimInstance::SetFootLockOffset(FVector& LocalLocation, FRotator& Local
 
 	LocalLocation = UKismetMathLibrary::RotateAngleAxis(LocalLocation - LocationDifference, RotationDifference.Yaw,
 	                                                    FVector::DownVector);
-	LocalRotation = LocalRotation - RotationDifference;
+	LocalRotation = UKismetMathLibrary::NormalizedDeltaRotator(LocalRotation, RotationDifference);
 }
 
 void UALSAnimInstance::SetFootOffset(FName EnableFootIKCurve, FName IKFootBone, FName RootBone,
@@ -778,4 +782,43 @@ EDrawDebugTrace::Type UALSAnimInstance::GetTraceDebugType(EDrawDebugTrace::Type 
 	}
 
 	return EDrawDebugTrace::Type::None;
+}
+
+void UALSAnimInstance::ANF_EnterState_Move_F(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	HipsDirection = EALSHipsDirection::F;
+}
+
+void UALSAnimInstance::ANF_EnterState_Move_B(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	HipsDirection = EALSHipsDirection::B;
+}
+
+void UALSAnimInstance::ANF_EnterState_Move_RF(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	HipsDirection = EALSHipsDirection::RF;
+}
+
+void UALSAnimInstance::ANF_EnterState_Move_RB(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	HipsDirection = EALSHipsDirection::RB;
+}
+
+void UALSAnimInstance::ANF_EnterState_Move_LF(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	HipsDirection = EALSHipsDirection::LF;
+}
+
+void UALSAnimInstance::ANF_EnterState_Move_LB(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	HipsDirection = EALSHipsDirection::LB;
+}
+
+void UALSAnimInstance::AnimNotify_Pivot()
+{
+	Pivot = Speed < TriggerPivotSpeedLimit;
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().SetTimer(ResetPivotTimer, [this] { Pivot = false; }, 0.1f, false);
+	}
 }

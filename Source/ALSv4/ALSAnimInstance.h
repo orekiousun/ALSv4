@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "IALSAnimInterface.h"
 #include "Animation/AnimInstance.h"
+#include "Animation/AnimExecutionContext.h"
+#include "Animation/AnimNodeReference.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "ALSAnimInstance.generated.h"
 
@@ -67,6 +69,22 @@ protected:
 
 	EDrawDebugTrace::Type GetTraceDebugType(EDrawDebugTrace::Type TraceType) const;
 
+	// AnimNodeFunctions
+	UFUNCTION(BlueprintCallable, Category = "ALS|Anim|NodeFunctions", meta = (BlueprintThreadSafe))
+	void ANF_EnterState_Move_F(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, Category = "ALS|Anim|NodeFunctions", meta = (BlueprintThreadSafe))
+	void ANF_EnterState_Move_B(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, Category = "ALS|Anim|NodeFunctions", meta = (BlueprintThreadSafe))
+	void ANF_EnterState_Move_RF(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, Category = "ALS|Anim|NodeFunctions", meta = (BlueprintThreadSafe))
+	void ANF_EnterState_Move_RB(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, Category = "ALS|Anim|NodeFunctions", meta = (BlueprintThreadSafe))
+	void ANF_EnterState_Move_LF(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, Category = "ALS|Anim|NodeFunctions", meta = (BlueprintThreadSafe))
+	void ANF_EnterState_Move_LB(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION()
+	void AnimNotify_Pivot();
+	
 	// Config
 	// InterpSpeed
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|InterpSpeed")
@@ -97,7 +115,11 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Curve")
 	UCurveVector* YawOffset_LR;
 	// FootIK
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|FootIK")
 	FALSFootIKSettings FootIKSettings;
+	// Pivot
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config|Pivot")
+	float TriggerPivotSpeedLimit = 200.f;
 
 	// AnimatedSpeed
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
@@ -116,6 +138,7 @@ protected:
 
 	TObjectPtr<AALSBaseCharacter> Character;
 	FTimerHandle JumpTimerHandle;
+	FTimerHandle ResetPivotTimer;
 
 	float DeltaTime;
 	// CharacterInfo
@@ -159,6 +182,7 @@ protected:
 	float StrideBlend;
 	UPROPERTY(BlueprintReadOnly)
 	float StandingPlayRate;
+	UPROPERTY(BlueprintReadOnly)
 	float CrouchingPlayRate;
 	UPROPERTY(BlueprintReadOnly)
 	EALSMovementDirection MovementDirection;
@@ -232,4 +256,9 @@ protected:
 	float BasePose_CLF;
 	float Enable_HandIK_L;
 	float Enable_HandIK_R;
+	// AnimNodeFunctionValues
+	UPROPERTY(BlueprintReadOnly)
+	EALSHipsDirection HipsDirection;
+	UPROPERTY(BlueprintReadOnly)
+	bool Pivot;
 };

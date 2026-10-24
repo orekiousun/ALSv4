@@ -82,6 +82,8 @@ protected:
 	void ANF_EnterState_Move_LF(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION(BlueprintCallable, Category = "ALS|Anim|NodeFunctions", meta = (BlueprintThreadSafe))
 	void ANF_EnterState_Move_LB(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
+	UFUNCTION(BlueprintCallable, Category = "ALS|Anim|NodeFunctions", meta = (BlueprintThreadSafe))
+	void ANF_StopTransition(const FAnimUpdateContext& Context, const FAnimNodeReference& Node);
 	UFUNCTION()
 	void AnimNotify_Pivot();
 	
@@ -207,9 +209,13 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	float RotationScale;
 	// InAirValues
+	UPROPERTY(BlueprintReadOnly)
 	bool bJumped;
+	UPROPERTY(BlueprintReadOnly)
 	float JumpPlayRate;
+	UPROPERTY(BlueprintReadOnly)
 	float FallSpeed;
+	UPROPERTY(BlueprintReadOnly)
 	float LandPrediction;
 	// RagdollValues
 	float FlailRate;

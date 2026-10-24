@@ -100,7 +100,7 @@ void UALSAnimInstance::OnJumped()
 {
 	IIALSAnimInterface::OnJumped();
 	bJumped = true;
-	JumpPlayRate = UKismetMathLibrary::MapRangeClamped(Speed, 0.f, 600.f, 1.2f, 1.5f);
+	JumpPlayRate = UKismetMathLibrary::MapRangeClamped(Speed, 0.f, 600.f, 1.5f, 2.f);
 	if (GetWorld())
 	{
 		GetWorld()->GetTimerManager().SetTimer(JumpTimerHandle, [this] { bJumped = false; }, 0.1f, false);
@@ -130,11 +130,6 @@ void UALSAnimInstance::UpdateCharacterInfo()
 
 void UALSAnimInstance::UpdateAimingValues()
 {
-	if (IsValid(Character))
-	{
-		return;
-	}
-
 	FRotator ActorRotation = Character->GetActorRotation();
 	// 插值SmoothedAimingRotation
 	UKismetMathLibrary::RInterpTo(SmoothedAimingRotation, AimingRotation, DeltaTime, SmoothedAimingRotationInterpSpeed);
@@ -812,6 +807,13 @@ void UALSAnimInstance::ANF_EnterState_Move_LF(const FAnimUpdateContext& Context,
 void UALSAnimInstance::ANF_EnterState_Move_LB(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	HipsDirection = EALSHipsDirection::LB;
+}
+
+void UALSAnimInstance::ANF_StopTransition(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+{
+	StopSlotAnimation(.2f, TEXT("Grounded Slot"));
+	StopSlotAnimation(.2f, TEXT("(N) Turn/Rotate"));
+	StopSlotAnimation(.2f, TEXT("(CLF) Turn/Rotate"));
 }
 
 void UALSAnimInstance::AnimNotify_Pivot()

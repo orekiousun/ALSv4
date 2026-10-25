@@ -220,14 +220,23 @@ protected:
 	// RagdollValues
 	float FlailRate;
 	// AimingValues
+	UPROPERTY(BlueprintReadOnly)
 	FRotator SmoothedAimingRotation;
+	UPROPERTY(BlueprintReadOnly)
 	FRotator SpineRotation;
+	UPROPERTY(BlueprintReadOnly)
 	FVector2D AimingAngle;
+	UPROPERTY(BlueprintReadOnly)
 	FVector2D SmoothedAimingAngle;
+	UPROPERTY(BlueprintReadOnly)
 	float AimSweepTime;
+	UPROPERTY(BlueprintReadOnly)
 	float InputYawOffsetTime;
+	UPROPERTY(BlueprintReadOnly)
 	float ForwardYawTime;
+	UPROPERTY(BlueprintReadOnly)
 	float LeftYawTime;
+	UPROPERTY(BlueprintReadOnly)
 	float RightYawTime;
 	//Foot IK
 	UPROPERTY(BlueprintReadOnly)
@@ -255,12 +264,15 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	float PelvisAlpha;
 	// LayerValues
+	UPROPERTY(BlueprintReadOnly)
 	float Enable_AimOffset;
 	UPROPERTY(BlueprintReadOnly)
 	float BasePose_N;
 	UPROPERTY(BlueprintReadOnly)
 	float BasePose_CLF;
+	UPROPERTY(BlueprintReadOnly)
 	float Enable_HandIK_L;
+	UPROPERTY(BlueprintReadOnly)
 	float Enable_HandIK_R;
 	// AnimNodeFunctionValues
 	UPROPERTY(BlueprintReadOnly)

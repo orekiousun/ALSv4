@@ -88,7 +88,7 @@ void AALSBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 		                                   &AALSBaseCharacter::OnWalkCompleted);
 		EnhancedInputComponent->BindAction(InputActions.SprintAction, ETriggerEvent::Triggered, this,
 		                                   &AALSBaseCharacter::OnSprintTriggered);
-		EnhancedInputComponent->BindAction(InputActions.WalkAction, ETriggerEvent::Completed, this,
+		EnhancedInputComponent->BindAction(InputActions.SprintAction, ETriggerEvent::Completed, this,
 		                                   &AALSBaseCharacter::OnSprintCompleted);
 		EnhancedInputComponent->BindAction(InputActions.SelectionRotationMode1Action, ETriggerEvent::Triggered, this,
 		                                   &AALSBaseCharacter::OnSelectRotationMode1Triggered);

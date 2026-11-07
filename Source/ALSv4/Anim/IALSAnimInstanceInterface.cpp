@@ -1,14 +1,14 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "IALSAnimInterface.h"
+#include "IALSAnimInstanceInterface.h"
 
 
 // Add default functionality here for any IIALSAnimInterface functions that are not pure virtual.
-void IIALSAnimInterface::OnJumped()
+void IIALSAnimInstanceInterface::OnJumped()
 {
 }
 
-void IIALSAnimInterface::SetGroundedEntryState(EALSGroundedEntryState InGroundedEntryState)
+void IIALSAnimInstanceInterface::SetGroundedEntryState(EALSGroundedEntryState InGroundedEntryState)
 {
 }

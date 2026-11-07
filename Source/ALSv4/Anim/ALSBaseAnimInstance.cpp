@@ -1,28 +1,28 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "ALSAnimInstance.h"
+#include "ALSBaseAnimInstance.h"
 
-#include "ALSBaseCharacter.h"
-#include "ALSBlueprintFunctionLibrary.h"
-#include "ALSControllerInterface.h"
+#include "ALSv4/ALSBlueprintFunctionLibrary.h"
+#include "ALSv4/Controller/ALSControllerInterface.h"
 #include "KismetAnimationLibrary.h"
 #include "SequenceEvaluatorLibrary.h"
+#include "ALSv4/Character/ALSBaseCharacter.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 
 class IALSControllerInterface;
-class AALSPlayerController;
+class AALSBasePlayerController;
 
-void UALSAnimInstance::NativeInitializeAnimation()
+void UALSBaseAnimInstance::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();
 	Character = Cast<AALSBaseCharacter>(TryGetPawnOwner());
 }
 
-void UALSAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
+void UALSBaseAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 {
 	Super::NativeUpdateAnimation(DeltaSeconds);
 	DeltaTime = DeltaSeconds;
@@ -96,9 +96,9 @@ void UALSAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	}
 }
 
-void UALSAnimInstance::OnJumped()
+void UALSBaseAnimInstance::OnJumped()
 {
-	IIALSAnimInterface::OnJumped();
+	IIALSAnimInstanceInterface::OnJumped();
 	bJumped = true;
 	JumpPlayRate = UKismetMathLibrary::MapRangeClamped(Speed, 0.f, 600.f, 1.5f, 2.f);
 	if (GetWorld())
@@ -107,13 +107,13 @@ void UALSAnimInstance::OnJumped()
 	}
 }
 
-void UALSAnimInstance::SetGroundedEntryState(EALSGroundedEntryState InGroundedEntryState)
+void UALSBaseAnimInstance::SetGroundedEntryState(EALSGroundedEntryState InGroundedEntryState)
 {
-	IIALSAnimInterface::SetGroundedEntryState(InGroundedEntryState);
+	IIALSAnimInstanceInterface::SetGroundedEntryState(InGroundedEntryState);
 	GroundedEntryState = InGroundedEntryState;
 }
 
-void UALSAnimInstance::UpdateCharacterInfo()
+void UALSBaseAnimInstance::UpdateCharacterInfo()
 {
 	IALSCharacterInterface* CharacterInterface = Cast<IALSCharacterInterface>(Character);
 	if (!CharacterInterface)
@@ -128,7 +128,7 @@ void UALSAnimInstance::UpdateCharacterInfo()
 	                                     RotationMode, Gait, Stance, ViewMode);
 }
 
-void UALSAnimInstance::UpdateAimingValues()
+void UALSBaseAnimInstance::UpdateAimingValues()
 {
 	FRotator ActorRotation = Character->GetActorRotation();
 	// 插值SmoothedAimingRotation
@@ -169,7 +169,7 @@ void UALSAnimInstance::UpdateAimingValues()
 	ForwardYawTime = UKismetMathLibrary::MapRangeClamped(SmoothedAimingAngle.X, -180.f, 180.f, 0.f, 1.f);
 }
 
-void UALSAnimInstance::UpdateLayerValue()
+void UALSBaseAnimInstance::UpdateLayerValue()
 {
 	Enable_AimOffset = UKismetMathLibrary::Lerp(0, 1, GetCurveValue(TEXT("Mask_AimOffset")));
 	BasePose_N = GetCurveValue(TEXT("BasePose_N"));
@@ -180,7 +180,7 @@ void UALSAnimInstance::UpdateLayerValue()
 	                                           GetCurveValue(TEXT("Layering_Arm_R")));
 }
 
-void UALSAnimInstance::UpdateRotationValues()
+void UALSBaseAnimInstance::UpdateRotationValues()
 {
 	MovementDirection = CalcMovementDirection();
 	float YawOffset = UKismetMathLibrary::NormalizedDeltaRotator(UKismetMathLibrary::Conv_VectorToRotator(Velocity),
@@ -193,17 +193,17 @@ void UALSAnimInstance::UpdateRotationValues()
 	RYaw = YawOffset_LR_Val.Y;
 }
 
-bool UALSAnimInstance::ShouldMoveCheck()
+bool UALSBaseAnimInstance::ShouldMoveCheck()
 {
 	return (bIsMoving && bHasMovementInput) || Speed > 150.f;
 }
 
-bool UALSAnimInstance::CanRotateInPlace()
+bool UALSBaseAnimInstance::CanRotateInPlace()
 {
 	return RotationMode == EALSRotationMode::Aiming || ViewMode == EALSViewMode::FirstPerson;
 }
 
-void UALSAnimInstance::RotateInPlaceCheck()
+void UALSBaseAnimInstance::RotateInPlaceCheck()
 {
 	// 超过对应角度阈值需要向左/向右旋转
 	Rotate_L = AimingAngle.X < RotateInPlaceSettings.RotateMinThreshold;
@@ -221,13 +221,13 @@ void UALSAnimInstance::RotateInPlaceCheck()
 	}
 }
 
-bool UALSAnimInstance::CanTurnInPlace()
+bool UALSBaseAnimInstance::CanTurnInPlace()
 {
 	return RotationMode == EALSRotationMode::LookingDirection && ViewMode == EALSViewMode::ThirdPerson && GetCurveValue(
 		TEXT("Enable_Transition")) > 0.99;
 }
 
-void UALSAnimInstance::TurnInPlaceCheck()
+void UALSBaseAnimInstance::TurnInPlaceCheck()
 {
 	if (UKismetMathLibrary::Abs(AimingAngle.X) > TurnInPlaceSettings.TurnCheckMinAngle && AimYawRate <
 		TurnInPlaceSettings.AimYawRateLimit)
@@ -255,7 +255,7 @@ void UALSAnimInstance::TurnInPlaceCheck()
 	}
 }
 
-void UALSAnimInstance::TurnInPlace(FRotator TargetRotation, float PlayRateScale, float StartTime, bool bOverrideCurrent)
+void UALSBaseAnimInstance::TurnInPlace(FRotator TargetRotation, float PlayRateScale, float StartTime, bool bOverrideCurrent)
 {
 	float TurnAngle = UKismetMathLibrary::NormalizedDeltaRotator(TargetRotation, Character->GetActorRotation()).Yaw;
 	FALSTurnInPlaceAsset TargetTurnAsset;
@@ -311,12 +311,12 @@ void UALSAnimInstance::TurnInPlace(FRotator TargetRotation, float PlayRateScale,
 	}
 }
 
-bool UALSAnimInstance::CanDynamicTransition()
+bool UALSBaseAnimInstance::CanDynamicTransition()
 {
 	return GetCurveValue(TEXT("Enable_Transition")) == 1.f;
 }
 
-void UALSAnimInstance::DynamicTransitionCheck()
+void UALSBaseAnimInstance::DynamicTransitionCheck()
 {
 	USkeletalMeshComponent* SkeletalMeshComponent = GetOwningComponent();
 	if (!SkeletalMeshComponent)
@@ -358,7 +358,7 @@ void UALSAnimInstance::DynamicTransitionCheck()
 	}
 }
 
-void UALSAnimInstance::PlayDynamicTransition(float ReTriggerDelay, FALSDynamicMontageParams Params)
+void UALSBaseAnimInstance::PlayDynamicTransition(float ReTriggerDelay, FALSDynamicMontageParams Params)
 {
 	static float LastTime = 0.f;
 	float NowTime = UGameplayStatics::GetTimeSeconds(this);
@@ -378,7 +378,7 @@ void UALSAnimInstance::PlayDynamicTransition(float ReTriggerDelay, FALSDynamicMo
 	}
 }
 
-void UALSAnimInstance::UpdateMovementValues()
+void UALSBaseAnimInstance::UpdateMovementValues()
 {
 	VelocityBlend = UALSBlueprintFunctionLibrary::InterpolateVelocityBlend(
 		VelocityBlend, CalcVelocityBlend(), VelocityBlendInterpSpeed, DeltaTime);
@@ -396,7 +396,7 @@ void UALSAnimInstance::UpdateMovementValues()
 	CrouchingPlayRate = CalcCrouchingPlayRate();
 }
 
-FALSVelocityBlend UALSAnimInstance::CalcVelocityBlend()
+FALSVelocityBlend UALSBaseAnimInstance::CalcVelocityBlend()
 {
 	FALSVelocityBlend Ret;
 	FVector VelocityDirection = UKismetMathLibrary::Normal(Velocity, 0.1f);
@@ -412,13 +412,13 @@ FALSVelocityBlend UALSAnimInstance::CalcVelocityBlend()
 	return Ret;
 }
 
-float UALSAnimInstance::CalcDiagonalScaleAmount()
+float UALSBaseAnimInstance::CalcDiagonalScaleAmount()
 {
 	float InTime = UKismetMathLibrary::Abs(VelocityBlend.F + VelocityBlend.B);
 	return UALSBlueprintFunctionLibrary::GetCurveFloatValue(DiagonalScaleAmountCurve, InTime);
 }
 
-FVector UALSAnimInstance::CalcRelativeAccelerationAmount()
+FVector UALSBaseAnimInstance::CalcRelativeAccelerationAmount()
 {
 	UCharacterMovementComponent* MoveComp = Character ? Character->GetCharacterMovement() : nullptr;
 	if (!MoveComp)
@@ -444,12 +444,12 @@ FVector UALSAnimInstance::CalcRelativeAccelerationAmount()
 	}
 }
 
-float UALSAnimInstance::CalcWalkRunBlend()
+float UALSBaseAnimInstance::CalcWalkRunBlend()
 {
 	return Gait == EALSGait::Walking ? 0.f : 1.f;
 }
 
-float UALSAnimInstance::CalcStrideBlend()
+float UALSBaseAnimInstance::CalcStrideBlend()
 {
 	// 获取当前步态
 	float Weight_Gait = GetCurveValue(TEXT("Weight_Gait"));
@@ -466,7 +466,7 @@ float UALSAnimInstance::CalcStrideBlend()
 	return UKismetMathLibrary::Lerp(StrideBlendN, StrideBlendCWalk, Weight_CLF);
 }
 
-float UALSAnimInstance::CalcStandingPlayRate()
+float UALSBaseAnimInstance::CalcStandingPlayRate()
 {
 	if (!GetOwningComponent())
 	{
@@ -488,7 +488,7 @@ float UALSAnimInstance::CalcStandingPlayRate()
 	return UKismetMathLibrary::FClamp(PlayRate, 0.f, 3.f);
 }
 
-float UALSAnimInstance::CalcCrouchingPlayRate()
+float UALSBaseAnimInstance::CalcCrouchingPlayRate()
 {
 	if (!GetOwningComponent())
 	{
@@ -501,7 +501,7 @@ float UALSAnimInstance::CalcCrouchingPlayRate()
 	return UKismetMathLibrary::FClamp(PlayRate, 0.f, 2.f);
 }
 
-EALSMovementDirection UALSAnimInstance::CalcMovementDirection()
+EALSMovementDirection UALSBaseAnimInstance::CalcMovementDirection()
 {
 	if (Gait == EALSGait::Sprinting || RotationMode == EALSRotationMode::VelocityDirection)
 	{
@@ -513,7 +513,7 @@ EALSMovementDirection UALSAnimInstance::CalcMovementDirection()
 		MovementDirection, 70.f, -70.f, 110.f, -110.f, 5.f, YawOffset);
 }
 
-void UALSAnimInstance::UpdateInAirValues()
+void UALSBaseAnimInstance::UpdateInAirValues()
 {
 	FallSpeed = Velocity.Z;
 	LandPrediction = CalcLandPrediction();
@@ -521,7 +521,7 @@ void UALSAnimInstance::UpdateInAirValues()
 	                                                            DeltaTime);
 }
 
-float UALSAnimInstance::CalcLandPrediction()
+float UALSBaseAnimInstance::CalcLandPrediction()
 {
 	if (FallSpeed >= -200.f)
 	{
@@ -567,7 +567,7 @@ float UALSAnimInstance::CalcLandPrediction()
 	return 0.f;;
 }
 
-FALSLeanAmount UALSAnimInstance::CalcInAirLeanAmount()
+FALSLeanAmount UALSBaseAnimInstance::CalcInAirLeanAmount()
 {
 	FALSLeanAmount InAirLeanAmount;
 	FVector RelativeVelocity = Character->GetActorRotation().UnrotateVector(Velocity);
@@ -577,7 +577,7 @@ FALSLeanAmount UALSAnimInstance::CalcInAirLeanAmount()
 	return InAirLeanAmount;
 }
 
-void UALSAnimInstance::UpdateFootIK()
+void UALSBaseAnimInstance::UpdateFootIK()
 {
 	SetFootLocking(TEXT("Enable_FootIK_L"), TEXT("FootLock_L"), TEXT("ik_foot_l"), FootLock_L_Alpha,
 	               FootLock_L_Location, FootLock_L_Rotation);
@@ -610,7 +610,7 @@ void UALSAnimInstance::UpdateFootIK()
 	}
 }
 
-void UALSAnimInstance::SetFootLocking(FName EnableFootIKCurve, FName FootLockCurve, FName IKFootBone,
+void UALSBaseAnimInstance::SetFootLocking(FName EnableFootIKCurve, FName FootLockCurve, FName IKFootBone,
                                       float& CurFootLockAlpha, FVector& CurFootLockLocation,
                                       FRotator& CurFootLockRotation)
 {
@@ -642,7 +642,7 @@ void UALSAnimInstance::SetFootLocking(FName EnableFootIKCurve, FName FootLockCur
 	}
 }
 
-void UALSAnimInstance::SetFootLockOffset(FVector& LocalLocation, FRotator& LocalRotation)
+void UALSBaseAnimInstance::SetFootLockOffset(FVector& LocalLocation, FRotator& LocalRotation)
 {
 	UCharacterMovementComponent* MoveComp = Character->GetCharacterMovement();
 	if (!MoveComp)
@@ -672,7 +672,7 @@ void UALSAnimInstance::SetFootLockOffset(FVector& LocalLocation, FRotator& Local
 	LocalRotation = UKismetMathLibrary::NormalizedDeltaRotator(LocalRotation, RotationDifference);
 }
 
-void UALSAnimInstance::SetFootOffset(FName EnableFootIKCurve, FName IKFootBone, FName RootBone,
+void UALSBaseAnimInstance::SetFootOffset(FName EnableFootIKCurve, FName IKFootBone, FName RootBone,
                                      FVector& CurLocationTarget, FVector& CurLocationOffset,
                                      FRotator& CurRotationOffset)
 {
@@ -735,7 +735,7 @@ void UALSAnimInstance::SetFootOffset(FName EnableFootIKCurve, FName IKFootBone, 
 	CurRotationOffset = UKismetMathLibrary::RInterpTo(CurRotationOffset, TargetRotationOffset, DeltaTime, 30.f);
 }
 
-void UALSAnimInstance::SetPelvisIKOffset(FVector FootOffsetLTarget, FVector FootOffsetRTarget)
+void UALSBaseAnimInstance::SetPelvisIKOffset(FVector FootOffsetLTarget, FVector FootOffsetRTarget)
 {
 	PelvisAlpha = GetCurveValue(TEXT("Enable_FootIK_L")) + GetCurveValue(TEXT("Enable_FootIK_R")) / 2;
 	if (PelvisAlpha <= 0.f)
@@ -749,15 +749,17 @@ void UALSAnimInstance::SetPelvisIKOffset(FVector FootOffsetLTarget, FVector Foot
 	PelvisOffset = UKismetMathLibrary::VInterpTo(PelvisOffset, PelvisTarget, DeltaTime, InterpSpeed);
 }
 
-void UALSAnimInstance::ResetIKOffset()
+void UALSBaseAnimInstance::ResetIKOffset()
 {
 	FootOffset_L_Location = UKismetMathLibrary::VInterpTo(FootOffset_L_Location, FVector::ZeroVector, DeltaTime, 15.f);
 	FootOffset_R_Location = UKismetMathLibrary::VInterpTo(FootOffset_R_Location, FVector::ZeroVector, DeltaTime, 15.f);
-	FootOffset_L_Rotation = UKismetMathLibrary::RInterpTo(FootOffset_L_Rotation, FRotator::ZeroRotator, DeltaTime, 15.f);
-	FootOffset_R_Rotation = UKismetMathLibrary::RInterpTo(FootOffset_R_Rotation, FRotator::ZeroRotator, DeltaTime, 15.f);
+	FootOffset_L_Rotation =
+		UKismetMathLibrary::RInterpTo(FootOffset_L_Rotation, FRotator::ZeroRotator, DeltaTime, 15.f);
+	FootOffset_R_Rotation =
+		UKismetMathLibrary::RInterpTo(FootOffset_R_Rotation, FRotator::ZeroRotator, DeltaTime, 15.f);
 }
 
-void UALSAnimInstance::UpdateRagdollValues()
+void UALSBaseAnimInstance::UpdateRagdollValues()
 {
 	USkeletalMeshComponent* SkeletalMeshComponent = GetOwningComponent();
 	if (!SkeletalMeshComponent)
@@ -769,7 +771,7 @@ void UALSAnimInstance::UpdateRagdollValues()
 	FlailRate = UKismetMathLibrary::MapRangeClamped(RootVelocity.Length(), 0.f, 1000.f, 0.f, 1.f);
 }
 
-EDrawDebugTrace::Type UALSAnimInstance::GetTraceDebugType(EDrawDebugTrace::Type TraceType) const
+EDrawDebugTrace::Type UALSBaseAnimInstance::GetTraceDebugType(EDrawDebugTrace::Type TraceType) const
 {
 	if (!Character)
 	{
@@ -787,44 +789,44 @@ EDrawDebugTrace::Type UALSAnimInstance::GetTraceDebugType(EDrawDebugTrace::Type 
 	return EDrawDebugTrace::Type::None;
 }
 
-void UALSAnimInstance::ANF_EnterState_Move_F(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+void UALSBaseAnimInstance::ANF_EnterState_Move_F(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	HipsDirection = EALSHipsDirection::F;
 }
 
-void UALSAnimInstance::ANF_EnterState_Move_B(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+void UALSBaseAnimInstance::ANF_EnterState_Move_B(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	HipsDirection = EALSHipsDirection::B;
 }
 
-void UALSAnimInstance::ANF_EnterState_Move_RF(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+void UALSBaseAnimInstance::ANF_EnterState_Move_RF(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	HipsDirection = EALSHipsDirection::RF;
 }
 
-void UALSAnimInstance::ANF_EnterState_Move_RB(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+void UALSBaseAnimInstance::ANF_EnterState_Move_RB(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	HipsDirection = EALSHipsDirection::RB;
 }
 
-void UALSAnimInstance::ANF_EnterState_Move_LF(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+void UALSBaseAnimInstance::ANF_EnterState_Move_LF(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	HipsDirection = EALSHipsDirection::LF;
 }
 
-void UALSAnimInstance::ANF_EnterState_Move_LB(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+void UALSBaseAnimInstance::ANF_EnterState_Move_LB(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	HipsDirection = EALSHipsDirection::LB;
 }
 
-void UALSAnimInstance::ANF_StopTransition(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
+void UALSBaseAnimInstance::ANF_StopTransition(const FAnimUpdateContext& Context, const FAnimNodeReference& Node)
 {
 	StopSlotAnimation(.2f, TEXT("Grounded Slot"));
 	StopSlotAnimation(.2f, TEXT("(N) Turn/Rotate"));
 	StopSlotAnimation(.2f, TEXT("(CLF) Turn/Rotate"));
 }
 
-void UALSAnimInstance::AnimNotify_Pivot()
+void UALSBaseAnimInstance::AnimNotify_Pivot()
 {
 	Pivot = Speed < TriggerPivotSpeedLimit;
 	if (GetWorld())

@@ -3,11 +3,12 @@
 
 #include "ALSBaseCharacter.h"
 
-#include "ALSAnimInstance.h"
-#include "ALSPlayerController.h"
+#include "ALSv4/Controller/ALSBasePlayerController.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
-#include "Components/CapsuleComponent.h"
+#include "ALSv4/ALSBlueprintFunctionLibrary.h"
+#include "ALSv4/Anim/ALSBaseAnimInstance.h"
+#include "ALSv4/Camera/ALSBasePlayerCameraManager.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -170,6 +171,96 @@ void AALSBaseCharacter::Landed(const FHitResult& Hit)
 	}
 }
 
+void AALSBaseCharacter::CalcCamera(float DeltaTime, struct FMinimalViewInfo& OutResult)
+{
+	Super::CalcCamera(DeltaTime, OutResult);
+	// APlayerCameraManager::UpdateViewTargetInternal调用过来，计算Camera
+	APlayerController* PlayerController = Cast<APlayerController>(GetController());
+	if (!PlayerController)
+	{
+		return;
+	}
+
+	AALSBasePlayerCameraManager* PlayerCameraManager = Cast<AALSBasePlayerCameraManager>(PlayerController->PlayerCameraManager);
+	if (!PlayerCameraManager)
+	{
+		return;
+	}
+
+	FTransform PivotTarget = GetActorTransform();
+
+	// 计算相机的Rotation
+	FRotator CameraRotation = PlayerCameraManager->GetCameraRotation();
+	FRotator ControlRotation = PlayerController->GetControlRotation();
+	float LerpSpeed = PlayerCameraManager->GetCameraBehaviorCurveValue(TEXT("RotationLagSpeed"));
+	FRotator TargetCameraRotation = UKismetMathLibrary::RInterpTo(CameraRotation, ControlRotation, DeltaTime, LerpSpeed);
+
+	// 计算SmoothedPivotTarget
+	FVector PivotLagSpeed;
+	PivotLagSpeed.X = PlayerCameraManager->GetCameraBehaviorCurveValue(TEXT("PivotLagSpeed_X"));
+	PivotLagSpeed.Y = PlayerCameraManager->GetCameraBehaviorCurveValue(TEXT("PivotLagSpeed_Y"));
+	PivotLagSpeed.Z = PlayerCameraManager->GetCameraBehaviorCurveValue(TEXT("PivotLagSpeed_Z"));
+	FVector SmoothedPivotTargetLocation = UALSBlueprintFunctionLibrary::CalcAxisIndependentLag(
+		SmoothedPivotTarget.GetLocation(), PivotTarget.GetLocation(), TargetCameraRotation, PivotLagSpeed, DeltaTime);
+	SmoothedPivotTarget = UKismetMathLibrary::MakeTransform(SmoothedPivotTargetLocation, PivotTarget.Rotator(),
+	                                                        FVector::OneVector);
+
+	// 根据偏移叠加计算PivotLocation
+	FVector ForwardOffset_Pivot = UKismetMathLibrary::GetForwardVector(
+		SmoothedPivotTarget.Rotator()) * PlayerCameraManager->GetCameraBehaviorCurveValue(TEXT("PivotOffset_X"));
+	FVector RightOffset_Pivot = UKismetMathLibrary::GetRightVector(
+		SmoothedPivotTarget.Rotator()) * PlayerCameraManager->GetCameraBehaviorCurveValue(TEXT("PivotOffset_Y"));
+	FVector UpOffset_Pivot = UKismetMathLibrary::GetUpVector(
+		SmoothedPivotTarget.Rotator()) * PlayerCameraManager->GetCameraBehaviorCurveValue(TEXT("PivotOffset_Z"));
+	FVector PivotLocation = SmoothedPivotTarget.GetLocation() + ForwardOffset_Pivot + RightOffset_Pivot +
+		UpOffset_Pivot;
+
+	// 叠加偏移计算TargetCameraLocation
+	FVector ForwardOffset_Camera = UKismetMathLibrary::GetForwardVector(TargetCameraRotation) *
+		PlayerCameraManager->GetCameraBehaviorCurveValue(TEXT("CameraOffset_X"));
+	FVector RightOffset_Camera = UKismetMathLibrary::GetRightVector(TargetCameraRotation) *
+		PlayerCameraManager->GetCameraBehaviorCurveValue(TEXT("CameraOffset_Y"));
+	FVector UpOffset_Camera = UKismetMathLibrary::GetUpVector(TargetCameraRotation) *
+		PlayerCameraManager->GetCameraBehaviorCurveValue(TEXT("CameraOffset_Z"));
+	FVector TargetCameraLocation = PivotLocation + ForwardOffset_Camera + RightOffset_Camera + UpOffset_Camera;
+
+	// 检测相机与角色位置之间的障碍物，以调整相机位置
+	TArray<AActor*> ActorsToIgnore;
+	FHitResult Hit;
+	UKismetSystemLibrary::SphereTraceSingle(
+		this,
+		GetActorLocation(),
+		TargetCameraLocation,
+		CameraSettings.TraceRadius,
+		ETraceTypeQuery::TraceTypeQuery1,
+		false,
+		ActorsToIgnore,
+		GetTraceDebugType(EDrawDebugTrace::Type::ForOneFrame),
+		Hit,
+		true
+	);
+	// 检测到了碰撞，调整TargetCameraLocation
+	if (Hit.bBlockingHit && !Hit.bStartPenetrating)
+	{
+		// 这里我的理解是Hit.TraceEnd就是TargetCameraLocation，所以TargetCameraLocation就是Hit.Location
+		TargetCameraLocation = Hit.Location - Hit.TraceEnd + TargetCameraLocation;
+	}
+
+	// 最后再根据相机曲线的Weight_FirstPerson插值
+	float Weight_FirstPerson = PlayerCameraManager->GetCameraBehaviorCurveValue(TEXT("Weight_FirstPerson"));
+	FVector FPTarget = GetMesh() ? GetMesh()->GetSocketLocation(FName("FP_Camera")) : FVector::ZeroVector;
+	FTransform TargetTransform = UKismetMathLibrary::MakeTransform(TargetCameraLocation, TargetCameraRotation,
+	                                                               FVector::OneVector);
+	FTransform FPTransform = UKismetMathLibrary::MakeTransform(FPTarget, TargetCameraRotation, FVector::OneVector);
+	FTransform OutTransform = UKismetMathLibrary::TLerp(TargetTransform, FPTransform, Weight_FirstPerson);
+
+	// 写入最终结果
+	OutResult.Location = OutTransform.GetLocation();
+	OutResult.Rotation = OutTransform.Rotator();
+	OutResult.FOV = UKismetMathLibrary::Lerp(CameraSettings.ThirdPersonFOV, CameraSettings.FirstPersonFOV,
+	                                         Weight_FirstPerson);
+}
+
 void AALSBaseCharacter::SetMovementState(EALSMovementState NewMovementState)
 {
 	IALSCharacterInterface::SetMovementState(NewMovementState);
@@ -263,7 +354,7 @@ void AALSBaseCharacter::OnBeginPlay()
 	if (USkeletalMeshComponent* TempMesh = GetMesh())
 	{
 		TempMesh->AddTickPrerequisiteActor(this);
-		MainAnimInstance = Cast<UALSAnimInstance>(TempMesh->GetAnimInstance());
+		MainAnimInstance = Cast<UALSBaseAnimInstance>(TempMesh->GetAnimInstance());
 	}
 
 	// 初始化状态值，下面的几个值都有默认值

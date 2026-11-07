@@ -37,4 +37,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	static bool AngleInRange(float Angle, float MinAngle, float MaxAngle, float Buffer, bool bIncreaseBuffer);
 
+	UFUNCTION(BlueprintCallable)
+	static FVector CalcAxisIndependentLag(FVector CurLocation, FVector TargetLocation, FRotator CameraRotation,
+	                                      FVector LagSpeed, float DeltaTime);
 };

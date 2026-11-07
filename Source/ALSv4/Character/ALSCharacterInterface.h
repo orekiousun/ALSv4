@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ALSTypes.h"
+#include "ALSv4/ALSTypes.h"
 #include "UObject/Interface.h"
 #include "ALSCharacterInterface.generated.h"
 

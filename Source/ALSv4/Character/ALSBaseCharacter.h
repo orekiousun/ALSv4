@@ -4,14 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "ALSCharacterInterface.h"
-#include "ALSTypes.h"
+#include "ALSv4/ALSTypes.h"
 #include "InputActionValue.h"
 #include "InputMappingContext.h"
 #include "GameFramework/Character.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "ALSBaseCharacter.generated.h"
 
-class UALSAnimInstance;
+class UALSBaseAnimInstance;
 
 UCLASS()
 class ALSV4_API AALSBaseCharacter : public ACharacter, public IALSCharacterInterface
@@ -32,6 +32,7 @@ public:
 	virtual void OnJumped_Implementation() override;
 	// 等效于OnLanded，只是OnLanded是BlueprintImplementableEvent，这里为了兼容不同版本的引擎，就用Landed了
 	virtual void Landed(const FHitResult& Hit) override;
+	virtual void CalcCamera(float DeltaTime, struct FMinimalViewInfo& OutResult) override;
 
 	virtual void SetMovementState(EALSMovementState NewMovementState) override;
 	virtual void SetMovementAction(EALSMovementAction NewMovementAction) override;
@@ -121,9 +122,11 @@ protected:
 	FALSInputActions InputActions;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Input)
 	UInputMappingContext* DefaultMappingContext;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Camera)
+	FALSCameraSettings CameraSettings;
 
 	UPROPERTY(Transient)
-	TObjectPtr<UALSAnimInstance> MainAnimInstance;
+	TObjectPtr<UALSBaseAnimInstance> MainAnimInstance;
 
 	EALSMovementState MovementState;
 	EALSMovementState PrevMovementState;
@@ -165,4 +168,7 @@ protected:
 	bool bBreakFall;
 	FTimerHandle BreakFallTimerHandle;
 	FTimerHandle BrakingFrictionFactorTimerHandle;
+	
+	// Camera
+	FTransform SmoothedPivotTarget;
 };

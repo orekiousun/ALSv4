@@ -81,3 +81,20 @@ bool UALSBlueprintFunctionLibrary::AngleInRange(float Angle, float MinAngle, flo
 		return UKismetMathLibrary::InRange_FloatFloat(Angle, MinAngle + Buffer, MaxAngle - Buffer);
 	}
 }
+
+FVector UALSBlueprintFunctionLibrary::CalcAxisIndependentLag(FVector CurLocation, FVector TargetLocation,
+                                                             FRotator CameraRotation, FVector LagSpeed, float DeltaTime)
+{
+	FRotator CameraRotationYaw = FRotator(0.f, CameraRotation.Yaw, 0.f);
+	FVector RelativeCurLocation = CameraRotationYaw.UnrotateVector(CurLocation);
+	FVector RelativeTargetLocation = CameraRotationYaw.UnrotateVector(TargetLocation);
+	FVector RelativeLerpLocation;
+	RelativeLerpLocation.X = UKismetMathLibrary::FInterpTo(RelativeCurLocation.X, RelativeTargetLocation.X, DeltaTime,
+	                                                       LagSpeed.X);
+	RelativeLerpLocation.Y = UKismetMathLibrary::FInterpTo(RelativeCurLocation.Y, RelativeTargetLocation.Y, DeltaTime,
+	                                                       LagSpeed.Y);
+	RelativeLerpLocation.Z = UKismetMathLibrary::FInterpTo(RelativeCurLocation.Z, RelativeTargetLocation.Z, DeltaTime,
+	                                                       LagSpeed.Z);
+
+	return CameraRotationYaw.RotateVector(RelativeLerpLocation);
+}

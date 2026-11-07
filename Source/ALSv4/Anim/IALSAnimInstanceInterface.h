@@ -3,13 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ALSTypes.h"
+#include "ALSv4/ALSTypes.h"
 #include "UObject/Interface.h"
-#include "IALSAnimInterface.generated.h"
+#include "IALSAnimInstanceInterface.generated.h"
 
 // This class does not need to be modified.
 UINTERFACE()
-class UIALSAnimInterface : public UInterface
+class UIALSAnimInstanceInterface : public UInterface
 {
 	GENERATED_BODY()
 };
@@ -17,7 +17,7 @@ class UIALSAnimInterface : public UInterface
 /**
  * 
  */
-class ALSV4_API IIALSAnimInterface
+class ALSV4_API IIALSAnimInstanceInterface
 {
 	GENERATED_BODY()
 

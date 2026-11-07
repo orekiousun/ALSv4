@@ -1,9 +1,20 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "ALSPlayerController.h"
+#include "ALSBasePlayerController.h"
 
-void AALSPlayerController::GetDebugInfo(TObjectPtr<ACharacter>& OutDebugFocusCharacter, bool& bOutDebugView,
+#include "ALSv4/Camera/ALSBasePlayerCameraManager.h"
+
+void AALSBasePlayerController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+	if (AALSBasePlayerCameraManager* ALSPlayerCameraManager = Cast<AALSBasePlayerCameraManager>(PlayerCameraManager))
+	{
+		ALSPlayerCameraManager->OnPossess(InPawn);
+	}
+}
+
+void AALSBasePlayerController::GetDebugInfo(TObjectPtr<ACharacter>& OutDebugFocusCharacter, bool& bOutDebugView,
                                         bool& bOutShouHUD, bool& bOutShouTraces, bool& bOutShouDebugShapes,
                                         bool& bOutShouLayerColors, bool& bOutShowSlomo,
                                         bool& bOutShowCharacterInfo)
@@ -18,7 +29,7 @@ void AALSPlayerController::GetDebugInfo(TObjectPtr<ACharacter>& OutDebugFocusCha
 	bOutShowCharacterInfo = bShowCharacterInfo;
 }
 
-bool AALSPlayerController::GetShowTraces()
+bool AALSBasePlayerController::GetShowTraces()
 {
 	return bShowTraces;
 }

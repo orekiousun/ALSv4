@@ -5,17 +5,18 @@
 #include "CoreMinimal.h"
 #include "ALSControllerInterface.h"
 #include "GameFramework/PlayerController.h"
-#include "ALSPlayerController.generated.h"
+#include "ALSBasePlayerController.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class ALSV4_API AALSPlayerController : public APlayerController, public IALSControllerInterface
+class ALSV4_API AALSBasePlayerController : public APlayerController, public IALSControllerInterface
 {
 	GENERATED_BODY()
 
 public:
+	virtual void OnPossess(APawn* InPawn) override;
 	virtual void GetDebugInfo(TObjectPtr<ACharacter>& OutDebugFocusCharacter, bool& bOutDebugView, bool& bOutShouHUD,
 	                          bool& bOutShouTraces, bool& bOutShouDebugShapes, bool& bOutShouLayerColors,
 	                          bool& bOutShowSlomo, bool& bOutShowCharacterInfo) override;

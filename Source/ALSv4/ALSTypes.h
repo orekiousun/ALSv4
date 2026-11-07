@@ -423,3 +423,17 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float IK_TraceDistanceBelowFoot = 45.f;
 };
+
+USTRUCT(BlueprintType)
+struct FALSCameraSettings
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float ThirdPersonFOV = 90.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float FirstPersonFOV = 90.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float TraceRadius = 10.f;
+};

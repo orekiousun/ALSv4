@@ -3,17 +3,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "IALSAnimInterface.h"
+#include "IALSAnimInstanceInterface.h"
+#include "ALSv4/ALSTypes.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimExecutionContext.h"
 #include "Animation/AnimNodeReference.h"
 #include "Kismet/KismetSystemLibrary.h"
-#include "ALSAnimInstance.generated.h"
+#include "ALSBaseAnimInstance.generated.h"
 
 class AALSBaseCharacter;
 
 UCLASS()
-class ALSV4_API UALSAnimInstance : public UAnimInstance, public IIALSAnimInterface
+class ALSV4_API UALSBaseAnimInstance : public UAnimInstance, public IIALSAnimInstanceInterface
 {
 	GENERATED_BODY()
 

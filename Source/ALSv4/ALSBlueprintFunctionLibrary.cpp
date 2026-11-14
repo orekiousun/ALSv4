@@ -49,8 +49,9 @@ EALSMovementDirection UALSBlueprintFunctionLibrary::CalcQuadrant(EALSMovementDir
                                                                  float FLThreshold, float BRThreshold,
                                                                  float BLThreshold, float Buffer, float Angle)
 {
-	bool bIncreaseBuffer_FB = Current != EALSMovementDirection::Forward || Current != EALSMovementDirection::Backward;
-	bool bIncreaseBuffer_LR = Current != EALSMovementDirection::Left || Current != EALSMovementDirection::Right;
+	// 只有当"当前不在该轴的两个方向上"时才扩大判定范围，这样进入象限时用窄区间、离开时用宽区间，形成滞回
+	bool bIncreaseBuffer_FB = Current != EALSMovementDirection::Forward && Current != EALSMovementDirection::Backward;
+	bool bIncreaseBuffer_LR = Current != EALSMovementDirection::Left && Current != EALSMovementDirection::Right;
 	if (AngleInRange(Angle, FLThreshold, FRThreshold, Buffer, bIncreaseBuffer_FB))
 	{
 		return EALSMovementDirection::Forward;

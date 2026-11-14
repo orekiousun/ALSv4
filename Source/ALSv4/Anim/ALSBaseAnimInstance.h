@@ -225,12 +225,12 @@ protected:
 	FRotator SmoothedAimingRotation;
 	UPROPERTY(BlueprintReadOnly)
 	FRotator SpineRotation;
+	// 实际控制器旋转和当前角色旋转的差值，X代表Yaw，Y代表Pitch
 	UPROPERTY(BlueprintReadOnly)
 	FVector2D AimingAngle;
+	// Smooth后的控制器旋转与角色旋转的差值，X代表Yaw，Y代表Pitch，用于计算AO
 	UPROPERTY(BlueprintReadOnly)
 	FVector2D SmoothedAimingAngle;
-	UPROPERTY(BlueprintReadOnly)
-	float AimSweepTime;
 	UPROPERTY(BlueprintReadOnly)
 	float InputYawOffsetTime;
 	UPROPERTY(BlueprintReadOnly)

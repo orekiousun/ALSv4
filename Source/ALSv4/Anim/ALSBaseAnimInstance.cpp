@@ -131,10 +131,11 @@ void UALSBaseAnimInstance::UpdateCharacterInfo()
 void UALSBaseAnimInstance::UpdateAimingValues()
 {
 	FRotator ActorRotation = Character->GetActorRotation();
-	// 插值SmoothedAimingRotation
-	UKismetMathLibrary::RInterpTo(SmoothedAimingRotation, AimingRotation, DeltaTime, SmoothedAimingRotationInterpSpeed);
+	// 插值SmoothedAimingRotation到AimingRotation
+	SmoothedAimingRotation = UKismetMathLibrary::RInterpTo(SmoothedAimingRotation, AimingRotation, DeltaTime,
+	                                                       SmoothedAimingRotationInterpSpeed);
 
-	// 计算控制器旋转和当前角色选装的插值，计算AimingAngle和SmoothedAimingAngle
+	// 计算控制器旋转和当前角色旋转的差值，计算AimingAngle和SmoothedAimingAngle
 	FRotator AimingDeltaRotation = UKismetMathLibrary::NormalizedDeltaRotator(AimingRotation, ActorRotation);
 	AimingAngle = FVector2D(AimingDeltaRotation.Yaw, AimingDeltaRotation.Pitch);
 	FRotator SmoothedAimingDeltaRotation = UKismetMathLibrary::NormalizedDeltaRotator(
@@ -145,15 +146,18 @@ void UALSBaseAnimInstance::UpdateAimingValues()
 	{
 	case EALSRotationMode::LookingDirection:
 	case EALSRotationMode::Aiming:
-		AimSweepTime = UKismetMathLibrary::MapRangeClamped(AimingAngle.Y, -90.f, 90.f, 1.f, 0.f);
-		SpineRotation = FRotator(0.f, 0.f, AimingAngle.X / 4);
+		// 瞄准方向朝向摄像机
+		// Pelvis-Spine_01-Spine_02-Spine_04 四根骨骼分摊Yaw方向的旋转
+		SpineRotation = FRotator(0.f, AimingAngle.X / 4, 0.f);
 		break;
 	case EALSRotationMode::VelocityDirection:
+		// 瞄准方向朝向移动方向
 		if (bHasMovementInput)
 		{
-			// 计算InputYawOffsetTime
+			// 计算InputYawOffsetTime，从0-1表示Yaw朝向-90度到90度
 			FRotator MovementRotation = UKismetMathLibrary::Conv_VectorToRotator(MovementInput);
 			float DeltaYaw = UKismetMathLibrary::NormalizedDeltaRotator(MovementRotation, ActorRotation).Yaw;
+			// 计算出移动方向与角色旋转的Yaw差值，使角色的头朝向移动的方向
 			float TargetYawOffsetTime = UKismetMathLibrary::MapRangeClamped(DeltaYaw, -180.f, 180.f, 0.f, 1.f);
 			InputYawOffsetTime = UKismetMathLibrary::FInterpTo(InputYawOffsetTime, TargetYawOffsetTime, DeltaTime,
 			                                                   InputYawOffsetTimeInterpSpeed);
@@ -171,7 +175,7 @@ void UALSBaseAnimInstance::UpdateAimingValues()
 
 void UALSBaseAnimInstance::UpdateLayerValue()
 {
-	Enable_AimOffset = UKismetMathLibrary::Lerp(0, 1, GetCurveValue(TEXT("Mask_AimOffset")));
+	Enable_AimOffset = UKismetMathLibrary::Lerp(1, 0, GetCurveValue(TEXT("Mask_AimOffset")));
 	BasePose_N = GetCurveValue(TEXT("BasePose_N"));
 	BasePose_CLF = GetCurveValue(TEXT("BasePose_CLF"));
 	Enable_HandIK_L = UKismetMathLibrary::Lerp(0.f, GetCurveValue(TEXT("Enable_HandIK_L")),
@@ -255,7 +259,8 @@ void UALSBaseAnimInstance::TurnInPlaceCheck()
 	}
 }
 
-void UALSBaseAnimInstance::TurnInPlace(FRotator TargetRotation, float PlayRateScale, float StartTime, bool bOverrideCurrent)
+void UALSBaseAnimInstance::TurnInPlace(FRotator TargetRotation, float PlayRateScale, float StartTime,
+                                       bool bOverrideCurrent)
 {
 	float TurnAngle = UKismetMathLibrary::NormalizedDeltaRotator(TargetRotation, Character->GetActorRotation()).Yaw;
 	FALSTurnInPlaceAsset TargetTurnAsset;
@@ -404,7 +409,9 @@ FALSVelocityBlend UALSBaseAnimInstance::CalcVelocityBlend()
 	FVector RelativeVelocityDir = ActorRotation.UnrotateVector(VelocityDirection);
 	float Sum = UKismetMathLibrary::Abs(RelativeVelocityDir.X) + UKismetMathLibrary::Abs(RelativeVelocityDir.Y) +
 		UKismetMathLibrary::Abs(RelativeVelocityDir.Z);
+	// 除以Sum，保证RelativeDirection几个方向的分量和为1，同时保证FBRL的和为1
 	FVector RelativeDirection = RelativeVelocityDir / Sum;
+	// 同一个轴上只有一个方向有效，即F*B=0，L*R=0
 	Ret.F = UKismetMathLibrary::FClamp(RelativeDirection.X, 0.f, 1.f);
 	Ret.B = UKismetMathLibrary::Abs(UKismetMathLibrary::FClamp(RelativeDirection.X, -1.f, 0.f));
 	Ret.L = UKismetMathLibrary::Abs(UKismetMathLibrary::FClamp(RelativeDirection.Y, -1.f, 0.f));
@@ -611,8 +618,8 @@ void UALSBaseAnimInstance::UpdateFootIK()
 }
 
 void UALSBaseAnimInstance::SetFootLocking(FName EnableFootIKCurve, FName FootLockCurve, FName IKFootBone,
-                                      float& CurFootLockAlpha, FVector& CurFootLockLocation,
-                                      FRotator& CurFootLockRotation)
+                                          float& CurFootLockAlpha, FVector& CurFootLockLocation,
+                                          FRotator& CurFootLockRotation)
 {
 	if (GetCurveValue(EnableFootIKCurve) <= 0.f)
 	{
@@ -673,8 +680,8 @@ void UALSBaseAnimInstance::SetFootLockOffset(FVector& LocalLocation, FRotator& L
 }
 
 void UALSBaseAnimInstance::SetFootOffset(FName EnableFootIKCurve, FName IKFootBone, FName RootBone,
-                                     FVector& CurLocationTarget, FVector& CurLocationOffset,
-                                     FRotator& CurRotationOffset)
+                                         FVector& CurLocationTarget, FVector& CurLocationOffset,
+                                         FRotator& CurRotationOffset)
 {
 	if (GetCurveValue(EnableFootIKCurve) <= 0.f)
 	{
